@@ -26,7 +26,7 @@ These instructions are for people who would like to install and use the malmo-ex
 ___
 ## **Developer Setup** ##
 
-These instructions are for people who would like to clone this repository make changes and add functionality for future releases of malmo-extension.
+These instructions are for people who would like to clone this repository to make changes and add functionality for future releases of malmo-extension.
 
 1. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases). Unzip the directory.
 
