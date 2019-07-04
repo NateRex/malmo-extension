@@ -9,7 +9,7 @@ These instructions are for people who would like to install and use the malmo-ex
 
 1. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases). Unzip the directory to any location on your computer.
 
-2. [Download the latest _prebuilt_ version of malmo-extension for Windows, Linux, or MacOSX]().
+2. [Download the latest _prebuilt_ version of malmo-extension for Windows, Linux, or MacOSX]() Unzip the directory to access the library file.
 
     You can now begin using the library. Navigate to the root of your Malmo directory, and launch a Malmo Minecraft client by using either the .sh script (MacOSX & Linux) or the .bat script (Windows):
 
@@ -17,7 +17,7 @@ These instructions are for people who would like to install and use the malmo-ex
     ./Minecraft/launchClient.sh
     ```
 
-    Now copy the malmo-extension library you downloaded to the directory in which you will create missions. See the [example_missions]() directory for examples. When you're ready, run your mission:
+    Now copy the malmo-extension library file you downloaded to the directory in which you will create missions. See the [example_missions]() directory for examples. When you're ready, run your mission:
 
     ```
     python3 myMission.py
