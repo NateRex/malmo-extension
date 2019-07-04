@@ -5,3 +5,4 @@ cd "$(dirname "$0")"
 
 malmopath="${MALMO_PATH?MALMO_PATH has not been set.}"
 
+cp $malmopath/Python_Examples/MalmoPython.so ./lib
