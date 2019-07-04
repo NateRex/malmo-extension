@@ -17,16 +17,16 @@ These instructions are for people who would like to install and use the malmo-ex
     ./Minecraft/launchClient.sh
     ```
 
-    Note that you will need multiple clients running for missions involving multiple agents. Now copy the malmo-extension library file (2) to the directory you will create missions in. See the [example_missions]() directory for examples. When you're ready, run your mission:
+    Note that you will need multiple clients running for missions involving multiple agents. Now copy the malmo-extension library file (2) to the directory you will create missions in. See the [example_missions]() directory for mission code examples. To run your mission:
 
     ```
-    python3 myMission.py
+    python3 mission.py
     ```
 
 ___
 ## **Developer Setup** ##
 
-These instructions are for people who would like to clone this repository to make changes and add functionality for future releases of malmo-extension.
+These instructions are for people who would like to clone this repository to make changes and add functionality for future releases of malmo-extension. This is very similar to the instructions above, except that files must be copied over from the Malmo Platform download.
 
 1. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases). Unzip the directory.
 
