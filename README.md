@@ -9,7 +9,7 @@ These instructions are for people who would like to install and use the malmo-ex
 
 1. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases). Unzip the directory.
 
-2. [Download the latest _prebuilt_ version of malmo-extension for Windows, Linux, or MacOSX]() Unzip the directory to access the library file.
+2. [Download the latest _pre-configured_ version of malmo-extension for Windows, Linux, or MacOSX](https://github.com/NateRex/malmo-extension/releases) Unzip the directory to access the library file.
 
     You can now begin using the library. Navigate to the root of the Malmo directory (1), and launch a Malmo Minecraft client (.sh on MacOSX and Linux, .bat on Windows):
 
