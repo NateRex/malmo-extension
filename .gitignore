@@ -1,5 +1,7 @@
 **/MalmoPython.so
 **/MalmoPython.pyd
 **/__pycache__
+**/logs
+**/performance
 .DS_Store
 settings.json
