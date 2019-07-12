@@ -1,6 +1,5 @@
 **/MalmoPython.so
 **/MalmoPython.pyd
-**/malmoutils.py
 **/__pycache__
 .DS_Store
 settings.json

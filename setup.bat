@@ -9,6 +9,4 @@ IF "%MALMO_PATH%"=="" (
 )
 
 xcopy %MALMO_PATH%\Python_Examples\MalmoPython.pyd .\malmoext
-xcopy %MALMO_PATH%\Python_Examples\malmoutils.py .\malmoext
-
 :END
