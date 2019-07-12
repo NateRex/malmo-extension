@@ -38,7 +38,7 @@ class Performance:
         self.dataIdx = 0
 
     @staticmethod
-    def addAgents(agents):
+    def trackAgents(agents):
         """
         Add the given agents to the list of agents for which we are recording performance data.
         """

@@ -8,7 +8,7 @@ import time
 from malmoext.Utils import *
 from malmoext.AgentInventory import *
 
-class StateFlags(Enum):
+class LogFlags(Enum):
     """
     Enumerated type for setting the flags of the Logger class on which state information to track in the initial and final state.
     """
@@ -40,88 +40,62 @@ class Logger:
             Logger.__stateFlags[i] = 0
 
     @staticmethod
-    def trackClosestMob(agent):
-        """
-        Set the flag to track the closest mob of an agent in the initial and final states.
-        """
-        Logger.__stateFlags[agent.getIndex()] |= StateFlags.ClosestMob.value
-
-    @staticmethod
-    def trackClosestPeacefulMob(agent):
-        """
-        Set the flag to track the closest peaceful mob of an agent in the initial and final states.
-        """
-        Logger.__stateFlags[agent.getIndex()] |= StateFlags.ClosestPeacefulMob.value
-
-    @staticmethod
-    def trackClosestHostileMob(agent):
-        """
-        Set the flag to track the closest hostile mob of an agent in the initial and final states.
-        """
-        Logger.__stateFlags[agent.getIndex()] |= StateFlags.ClosestHostileMob.value
-
-    @staticmethod
-    def trackClosestFoodMob(agent):
-        """
-        Set the flag to track the closest food mob of an agent in the initial and final states.
-        """
-        Logger.__stateFlags[agent.getIndex()] |= StateFlags.ClosestFoodMob.value
-
-    @staticmethod
-    def trackClosestFoodItem(agent):
-        """
-        Set the flag to track the closest food item of an agent in the initial and final states.
-        """
-        Logger.__stateFlags[agent.getIndex()] |= StateFlags.ClosestFoodItem.value
-
-    @staticmethod
-    def trackInventory(agent):
-        """
-        Set the flag to track the inventory of an agent in the initial and final states.
-        """
-        Logger.__stateFlags[agent.getIndex()] |= StateFlags.Inventory.value
+    def addAgentLogging(*agentMaskList):
+        '''
+        For each agent that requires additional/verbose logging, list the agent, followed by a mask consisting of LogFlags.
+        '''
+        i = 0
+        listLen = len(agentMaskList)
+        while i < listLen:
+            if i + 1 >= listLen:
+                raise Exception("expected LogFlags mask for given agent")
+            mask = agentMaskList[i + 1]
+            if not isinstance(mask, int):
+                raise Exception("expected LogFlags mask for given agent")
+            Logger.__stateFlags[agentMaskList[i].getIndex()] = mask
+            i += 2
 
     @staticmethod
     def isTrackingClosestMob(agent):
         """
         Returns true if the Logger is set to track the closest mob of an agent in the initial and final states.
         """
-        return (Logger.__stateFlags[agent.getIndex()] & StateFlags.ClosestMob.value) != 0
+        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestMob.value) != 0
 
     @staticmethod
     def isTrackingClosestPeacefulMob(agent):
         """
         Returns true if the Logger is set to track the closest peaceful mob of an agent in the initial and final states.
         """
-        return (Logger.__stateFlags[agent.getIndex()] & StateFlags.ClosestPeacefulMob.value) != 0
+        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestPeacefulMob.value) != 0
 
     @staticmethod
     def isTrackingClosestHostileMob(agent):
         """
         Returns true if the Logger is set to track the closest hostile mob of an agent in the initial and final states.
         """
-        return (Logger.__stateFlags[agent.getIndex()] & StateFlags.ClosestHostileMob.value) != 0
+        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestHostileMob.value) != 0
 
     @staticmethod
     def isTrackingClosestFoodMob(agent):
         """
         Returns true if the Logger is set to track the closest food mob of an agent in the initial and final states.
         """
-        return (Logger.__stateFlags[agent.getIndex()] & StateFlags.ClosestFoodMob.value) != 0
+        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestFoodMob.value) != 0
 
     @staticmethod
     def isTrackingClosestFoodItem(agent):
         """
         Returns true if the Logger is set to track the closest food item of an agent in the initial and final states.
         """
-        return (Logger.__stateFlags[agent.getIndex()] & StateFlags.ClosestFoodItem.value) != 0
+        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestFoodItem.value) != 0
 
     @staticmethod
     def isTrackingInventory(agent):
         """
         Returns true if the Logger is set to track the inventory of an agent in the initial and final states.
         """
-        return (Logger.__stateFlags[agent.getIndex()] & StateFlags.Inventory.value) != 0
+        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.Inventory.value) != 0
 
     @staticmethod
     def getCurrentState(agents):
