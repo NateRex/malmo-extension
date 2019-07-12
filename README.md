@@ -12,4 +12,4 @@ ___
     pip3 install malmoext
     ```
 
-That's it! You are now ready to begin using this Malmo wrapper. Check out the [Mission Guide]() for details on how to get started building and running Minecraft missions.
+That's it! You are now ready to begin using this Malmo wrapper. Check out the [Mission Guide](https://github.com/NateRex/malmo-extension/tree/master/example_missions#malmo-extension-mission-guide) for details on how to get started building and running Minecraft missions.
