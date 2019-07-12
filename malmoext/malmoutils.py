@@ -106,6 +106,7 @@ def initializeMalmo(numberOfAgents = 1):
     '''
     Initialize Microsoft's Malmo Platform by connecting to running clients.
     '''
+    global CLIENT_POOL
     MalmoPython.setLogging("", MalmoPython.LoggingSeverityLevel.LOG_OFF)
     CLIENT_POOL = MalmoPython.ClientPool()
     for i in range(10000, 10000 + numberOfAgents):
@@ -120,6 +121,7 @@ def loadEnvironment(xml):
     Returns:
         The configured Malmo mission object.
     '''
+    global MISSION
     MISSION = MalmoPython.MissionSpec(xml, True)
 
 def loadAgents(*agents):
@@ -127,8 +129,10 @@ def loadAgents(*agents):
     Load the agents that will be interacting with the environment by
     supplying any number of Agent objects.
     '''
-    AGENTS = agents
+    global AGENTS
+    __parse_command_line__(agents[0].host)
     Performance.trackAgents(agents)
+    AGENTS = agents
 
 def __safeMissionStart__(agent_host, mission, client_pool, recording, role, experimentId):
     used_attempts = 0
@@ -191,7 +195,7 @@ def startMission():
     i = 0
     agent_hosts = list(map(lambda x: x.host, AGENTS))
     for host in agent_hosts:
-        __safeMissionStart__(host, MISSION, CLIENT_POOL, __get_default_recording_object__(host, "agent_{}_viewpoint_continuous".format(i + 1)), i, '')
+        __safeMissionStart__(host, MISSION, CLIENT_POOL, __get_default_recording_object__(agent_hosts[0], "agent_{}_viewpoint_continuous".format(i + 1)), i, '')
         i += 1
     __safeWaitForStart__(agent_hosts)
 
