@@ -10,7 +10,7 @@ This repository contains several example scripts to get you started creating mis
 
 1. Create the agents
 2. Create the environment
-3. Start the Malmo mission
+3. Start the Malmo mission (specifying additional logging if necessary)
 4. Define each agent's actions (occurs in a loop)
 5. Cleanup
 
@@ -20,20 +20,24 @@ ____
 
 ## **Running Missions** ##
 
-To run a mission, first make sure you have as many Malmo Minecraft client instances running as you do agents in your mission. A client can be started by navigating to the root of Microsoft's Malmo project you installed, and running the following command:
+1. To run a mission, first make sure you have as many Malmo Minecraft client instances running as you do agents in your mission. A client can be started by navigating to the root of Microsoft's Malmo project you installed, and running the following command:
 
-Windows:
+    Windows:
     ```
     ./Minecraft/launchClient.bat
     ```
 
-Mac & Linux:
+    Mac & Linux:
     ```
     ./Minecraft/launchClient.sh
     ```
 
-With those up and running, you can now run your mission just as you would any other Python script (Python 3 or higher is required):
+2. With those up and running, you can now run your mission just as you would any other Python script (Python 3 or higher is required):
 
-```
-python3 <myMission>.py
-```
+    ```
+    python3 <myMission>.py
+    ```
+
+3. Once a mission finishes, several files will become available:
+    - A single log describing everything that occurred during the mission will be output to a "logs" directory.
+    - A CSV file for EACH agent will be output to a "performance" directory. Each CSV file contains agent statistics over time.

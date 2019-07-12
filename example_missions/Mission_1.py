@@ -1,14 +1,17 @@
 #!/usr/bin/python
-import sys              # <-- Only necessary if missions are in a different directory than malmoext/
-sys.path.append("..")   # <-- Only necessary if missions are in a different directory than malmoext/
-from malmoext import *
+# ===============================================================================================
+# Name: Mission1
+# Description: Two-agent mission where a 'companion' agent defends a 'player' agent using a sword
+# ===============================================================================================
+
+import sys              # <--- DELETE!!!
+sys.path.append("..")   # <--- DELETE!!!
+from malmoext import *  # <--- REPLACE W/ "import malmoext"
 
 # CREATE AGENTS ==================================================================================
 malmoutils.initializeMalmo(2)
 player_agent = Agent("Player", AgentType.Hardcoded)
 companion_agent = Agent("Companion", AgentType.Hardcoded)
-
-
 
 # CREATE THE ENVIRONMENT =========================================================================
 scenarioBuilder = ScenarioBuilder("Defend Player", 30000, player_agent.getId(), Vector(0, 4, 0), Direction.North)
@@ -41,15 +44,11 @@ scenarioBuilder.environment.addMob(Vector(2, 4, 4), MobType.Hostile.Zombie)
 scenarioBuilder.environment.addMob(Vector(-20, 4, 20), MobType.Hostile.Zombie)
 scenarioBuilder.environment.addMob(Vector(5, 4, -11), MobType.Hostile.Zombie)
 
-
-
 # START THE MISSION ==============================================================================
 malmoutils.loadEnvironment(scenarioBuilder.finish())
 malmoutils.loadAgents(player_agent, companion_agent)
 malmoutils.startMission()
 malmoutils.startLogging(player_agent, LogFlags.ClosestHostileMob.value)   # want verbose output for zombies close to player
-
-
 
 # AGENT ACTIONS ==================================================================================
 while player_agent.isMissionActive() or companion_agent.isMissionActive():
@@ -81,8 +80,6 @@ while player_agent.isMissionActive() or companion_agent.isMissionActive():
 
     # Nothing to do...
     companion_agent.stopAllMovement()
-
-
 
 # CLEANUP =========================================================================================
 malmoutils.finish()
