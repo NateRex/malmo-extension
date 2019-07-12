@@ -1,6 +1,8 @@
 **/MalmoPython.so
 **/MalmoPython.pyd
 **/__pycache__
+**/dist
+**/malmoext.egg-info
 **/logs
 **/performance
 .DS_Store

@@ -5,42 +5,11 @@ malmo-extension is a project that builds upon [Microsoft's Malmo Platform](https
 ___
 ## **Installation** ##
 
-These instructions are for people who would like to install and use the malmo-extension as is.
+1. Before you are able to use this package, you must have Microsoft's Malmo Platform installed on your machine. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases), and unzip the directory.
 
-1. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases). Unzip the directory.
-
-2. [Download the latest _pre-configured_ version of malmo-extension for Windows, Linux, or MacOSX](https://github.com/NateRex/malmo-extension/releases) Unzip the directory to access the package (a directory named malmoext).
-
-    You can now begin using the library. Navigate to the root of the Malmo directory (1), and launch a Malmo Minecraft client (.sh on MacOSX and Linux, .bat on Windows):
-
+2. Install the malmo-extension using pip:
     ```
-    ./Minecraft/launchClient.sh
+    pip3 install malmoext
     ```
 
-    Note that you will need multiple clients running for missions involving multiple agents. Now copy the malmo-extension package (2) to the directory you will create missions in. See the [example_missions]() directory for mission code examples. To run your mission:
-
-    ```
-    python3 mission.py
-    ```
-
-___
-## **Developer Setup** ##
-
-These instructions are for people who would like to clone this repository to make changes and add functionality for future releases of malmo-extension. This is very similar to the instructions above, except that files must be copied over from the Malmo Platform download.
-
-1. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases). Unzip the directory.
-
-2. Create a new environment variable called MALMO_PATH equal to the full path into the directory you unzipped above.
-
-3. Install the dependencies required to run Malmo for your operating system: [Windows](https://github.com/microsoft/malmo/blob/master/doc/install_windows.md), [Linux](https://github.com/microsoft/malmo/blob/master/doc/install_linux.md), [MacOSX](https://github.com/microsoft/malmo/blob/master/doc/install_macosx.md).
-
-4. Clone this repository to any location on your computer:
-    ```
-    git clone https://github.com/NateRex/malmo-extension.git
-    ```
-
-5. Run the setup script (.sh if you are on Linux or MacOSX, and .bat if you are on Windows):
-    ```
-    cd malmo-extension
-    ./setup.sh
-    ```
+That's it! You are now ready to begin using this Malmo wrapper. Check out the [Mission Guide]() for details on how to get started building and running Minecraft missions.
