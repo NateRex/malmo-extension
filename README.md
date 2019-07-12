@@ -9,7 +9,7 @@ These instructions are for people who would like to install and use the malmo-ex
 
 1. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases). Unzip the directory.
 
-2. [Download the latest _pre-configured_ version of malmo-extension for Windows, Linux, or MacOSX](https://github.com/NateRex/malmo-extension/releases) Unzip the directory to access the library file.
+2. [Download the latest _pre-configured_ version of malmo-extension for Windows, Linux, or MacOSX](https://github.com/NateRex/malmo-extension/releases) Unzip the directory to access the package (a directory named malmoext).
 
     You can now begin using the library. Navigate to the root of the Malmo directory (1), and launch a Malmo Minecraft client (.sh on MacOSX and Linux, .bat on Windows):
 
@@ -17,7 +17,7 @@ These instructions are for people who would like to install and use the malmo-ex
     ./Minecraft/launchClient.sh
     ```
 
-    Note that you will need multiple clients running for missions involving multiple agents. Now copy the malmo-extension library file (2) to the directory you will create missions in. See the [example_missions]() directory for mission code examples. To run your mission:
+    Note that you will need multiple clients running for missions involving multiple agents. Now copy the malmo-extension package (2) to the directory you will create missions in. See the [example_missions]() directory for mission code examples. To run your mission:
 
     ```
     python3 mission.py

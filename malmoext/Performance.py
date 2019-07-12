@@ -2,7 +2,6 @@
 # This file contains methods used to record statistics on agents as they perform
 # in a mission scenario.
 # ==============================================================================================
-import MalmoPython
 import json
 import math
 import time
@@ -10,8 +9,8 @@ import pandas
 import matplotlib.pyplot as plt
 import sys
 import random
-from Utils import *
-from Logger import *
+from malmoext.Utils import *
+from malmoext.Logger import *
 
 # A named tuple that contains an attribute name, as well as the handler and argument list for obtaining the attribute
 SpecialAttribute = namedtuple("SpecialAttribute", "name function args")

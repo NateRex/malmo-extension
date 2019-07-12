@@ -2,7 +2,7 @@
 # This file holds the AgentInventory class for dynamically storing the items held by a player,
 # along with corresponding ids used when generating log traces.
 # ==============================================================================================
-from Utils import *
+from malmoext.Utils import *
 
 class AgentInventory:
     """

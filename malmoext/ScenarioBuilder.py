@@ -3,7 +3,7 @@
 # mission. Note: The only class in this file that should be used directly by callers is the
 # ScenarioBuilder
 # ==============================================================================================
-from Utils import *
+from malmoext.Utils import *
 
 class EnvironmentBuilder:
     """

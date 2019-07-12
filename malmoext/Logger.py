@@ -5,8 +5,8 @@
 from datetime import datetime
 import os
 import time
-from Utils import *
-from AgentInventory import *
+from malmoext.Utils import *
+from malmoext.AgentInventory import *
 
 class StateFlags(Enum):
     """

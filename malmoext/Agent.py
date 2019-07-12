@@ -3,13 +3,13 @@
 # several primitive commands into larger commands that can be used to acheive more complex tasks.
 # Logging is also handled automatically for each command that creates a corresponding trace.
 # ==============================================================================================
-import MalmoPython
+import malmoext.MalmoPython as MalmoPython
 import json
 import math
 import time
-from Utils import *
-from Logger import *
-from AgentInventory import *
+from malmoext.Utils import *
+from malmoext.Logger import *
+from malmoext.AgentInventory import *
 
 class Agent:
     """
