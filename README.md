@@ -5,7 +5,7 @@ malmo-extension is a project that builds upon [Microsoft's Malmo Platform](https
 ___
 ## **Installation** ##
 
-1. Before you are able to use this package, you must have Microsoft's Malmo Platform installed on your machine. [Download the latest _prebuilt_ version of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases), and unzip the directory.
+1. Before you are able to use this package, you must have Microsoft's Malmo Platform installed on your machine. [Download the **_prebuilt_ 0.37.0 version** of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases), and unzip the directory.
 
 2. Install the malmo-extension using pip:
     ```
