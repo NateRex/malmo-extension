@@ -7,7 +7,10 @@ ___
 
 1. Before you are able to use this package, you must have Microsoft's Malmo Platform installed on your machine. [Download the **_prebuilt_ 0.37.0 version** of the Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases), and unzip the directory.
 
-2. Install the malmo-extension using pip:
+2. Create a new global environment variable called MALMO_XSD_PATH. Let it equal the full path to the Schemas/ directory inside of the project you unzipped for step 1.
+    - MALMO_XSD_PATH: \<path to folder from step 1\>/Schemas
+
+3. Install the malmo-extension using pip:
     ```
     pip3 install malmoext
     ```
