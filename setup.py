@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
      name='malmoext',  
-     version='0.1',
+     version='0.3',
      author="Nathaniel Rex",
      author_email="nathanieljrex@gmail.com",
      description="An extension to Microsoft's Malmo Project",
@@ -14,7 +14,7 @@ setuptools.setup(
      url="https://github.com/naterex/malmo-extension",
      packages=setuptools.find_packages(),
      package_data={
-         "malmoext": ["MalmoPython.so"]
+         "malmoext": ["MalmoPython.so", "MalmoPython.pyd"]
      },
      classifiers=[
          "Programming Language :: Python :: 3",
