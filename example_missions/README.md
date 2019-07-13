@@ -1,6 +1,6 @@
 # **malmo-extension Mission Guide** #
 
-This README will provide you details on how to start building and running Malmo Minecraft missions using malmo-extension. If you haven't done so already, make sure to install the necessary software by following [these instructions](https://github.com/NateRex/malmo-extension#malmo-extension).
+This README will provide you details on how to start building and running Malmo Minecraft missions using the malmo-extension. If you haven't done so already, make sure to install the necessary software by following [these instructions](https://github.com/NateRex/malmo-extension#malmo-extension).
 
 ____
 
