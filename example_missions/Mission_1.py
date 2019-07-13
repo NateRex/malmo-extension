@@ -4,9 +4,9 @@
 # Description: Two-agent mission where a 'companion' agent defends a 'player' agent using a sword
 # ===============================================================================================
 
-import sys              # <--- DELETE!!!
-sys.path.append("..")   # <--- DELETE!!!
-from malmoext import *  # <--- REPLACE W/ "import malmoext"
+import sys              # <--- Delete this line if you installed malmoext using pip
+sys.path.append("..")   # <--- Delete this line if you installed malmoext using pip
+from malmoext import *
 
 # CREATE AGENTS ==================================================================================
 malmoutils.initializeMalmo(2)

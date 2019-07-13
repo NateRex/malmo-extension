@@ -6,4 +6,5 @@
 **/logs
 **/performance
 .DS_Store
+build
 settings.json
