@@ -41,17 +41,6 @@ class Agent:
         self.lastEquippedItem = "None"
         self.lastItemAmount = 0
 
-    @staticmethod
-    def findAgentById(agentId):
-        """
-        Searches through the list of agents that have been created, and returns an agent with the id given.
-        If no agent exists with that id, returns None.
-        """
-        for agent in Agent.agentList:
-            if agent.id == agentId:
-                return agent
-        return None
-
     def resetClosestEntityRecords(self):
         """
         Resets the information regarding the most recent entities found nearby.
@@ -1031,7 +1020,7 @@ class Agent:
 
         self.__startAttacking__()
         self.stopAllMovement()  # Momentarily stop all movement to check if we killed the entity
-        time.sleep(0.5)         # Prevents possible spamming of the attack action
+        time.sleep(0.5)           # Prevents spamming of the attack action
         newMobsKilled = self.getMobsKilled()
 
         if newMobsKilled > oldMobsKilled:

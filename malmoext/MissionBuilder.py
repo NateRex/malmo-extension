@@ -1,13 +1,14 @@
 # ==============================================================================================
 # This file contains functionality for building up a scenario to be ran as a Malmo Python
 # mission. Note: The only class in this file that should be used directly by callers is the
-# ScenarioBuilder
+# MissionBuilder
 # ==============================================================================================
 from malmoext.Utils import *
+from malmoext.Agent import *
 
 class EnvironmentBuilder:
     """
-    Internal class used by the ScenarioBuilder for developing XML for the environment of a Malmo mission
+    Internal class used by the MissionBuilder for developing XML for the environment of a Malmo mission
     """
 
     def __init__(self):
@@ -63,7 +64,7 @@ class EnvironmentBuilder:
         self.__allowedMobs.discard(MobType.Hostile.Skeleton.value)
         self.__allowedMobs.discard(MobType.Hostile.Creeper.value)
 
-    def addCube(self, point0, point1, blockType, variant = None):
+    def addCube(self, blockType, point0, point1, variant = None):
         """
         Add a cuboid of a specific block type from lower-left-near corner point0 to upper-right-far corner point1.
         Each point is specified as a named Vector. If the block type specified is a mob spawner an additional mob type
@@ -76,7 +77,7 @@ class EnvironmentBuilder:
         else:
             self.__decoratorsXML += '''<DrawCuboid x1="{}" y1="{}" z1="{}" x2="{}" y2="{}" z2="{}" type="{}"/>'''.format(point0.x, point0.y, point0.z, point1.x, point1.y, point1.z, blockType.value)
 
-    def addLine(self, point0, point1, blockType, variant = None):
+    def addLine(self, blockType, point0, point1, variant = None):
         """
         Add a line of a specific block type from point0 to point1, where each point is specified as a named Vector.
         If the block type specified is a mob spawner, an additional mob type must be provided.
@@ -88,7 +89,7 @@ class EnvironmentBuilder:
         else:
             self.__decoratorsXML += '''<DrawLine x1="{}" y1="{}" z1="{}" x2="{}" y2="{}" z2="{}" type="{}"/>'''.format(point0.x, point0.y, point0.z, point1.x, point1.y, point1.z, blockType.value)
 
-    def addBlock(self, location, blockType, variant = None):
+    def addBlock(self, blockType, location, variant = None):
         """
         Add a block of a specific type at the location specified. The location should be given as a named Vector.
         If the block type specified is a mob spawner, an additional mob type must be provided.
@@ -100,7 +101,7 @@ class EnvironmentBuilder:
         else:
             self.__decoratorsXML += '''<DrawBlock x="{}" y="{}" z="{}" type="{}"/>'''.format(location.x, location.y, location.z, blockType.value)
 
-    def addSphere(self, center, radius, blockType, variant = None):
+    def addSphere(self, blockType, center, radius, variant = None):
         """
         Add a sphere of a specific block type, with a given radius and center. The center should be given as a named Vector.
         If the block type specified is a mob spawner, an additional mob type must be provided.
@@ -112,13 +113,13 @@ class EnvironmentBuilder:
         else:
             self.__decoratorsXML += '''<DrawSphere x="{}" y="{}" z="{}" radius="{}" type="{}"/>'''.format(center.x, center.y, center.z, radius, blockType.value)
 
-    def addDropItem(self, location, itemType):
+    def addDropItem(self, itemType, location):
         """
         Add a drop-item at a specific location specified as a named Vector.
         """
         self.__decoratorsXML += '''<DrawItem x="{}" y="{}" z="{}" type="{}"/>'''.format(location.x, location.y, location.z, itemType.value)
 
-    def addMob(self, location, mobType):
+    def addMob(self, mobType, location):
         """
         Spawn a mob of a specific type at the named Vector location given.
         """
@@ -136,13 +137,13 @@ class EnvironmentBuilder:
 
 class AgentBuilder:
     """
-    Internal class used by the ScenarioBuilder for developing XML for an agent in a Malmo mission.
+    Internal class used by the MissionBuilder for developing XML for an agent in a Malmo mission.
     """
 
-    def __init__(self, name, startPosition = None, startDirection = None):
+    def __init__(self, name, startPosition, startDirection):
         self.name = name
-        self.__position = startPosition if startPosition != None else (0, 0, 0)
-        self.__direction = startDirection.value if startDirection != None else Direction.North.value
+        self.__position = startPosition
+        self.__direction = startDirection.value
         self.__inventoryXML = ""
         self.__handlersXML = ""
 
@@ -170,7 +171,7 @@ class AgentBuilder:
         """
         return self.__direction
     
-    def addInventoryItem(self, item, slot, quantity = 1):
+    def addInventory(self, item, slot, quantity = 1):
         """
         Add an item to this agent's inventory at a designated item slot number, specifying a quantity.
         Each agent has 39 item slots, where 0-8 are the hotbar slots, 9-35 are the inventory slots, and 36-39 are the armor slots.
@@ -212,20 +213,17 @@ class AgentBuilder:
         </AgentSection>'''.format(self.name, self.__position.x, self.__position.y, self.__position.z, self.__direction, self.__inventoryXML, -GRID_OBSERVATION_X_HALF_LEN, -GRID_OBSERVATION_Y_HALF_LEN, -GRID_OBSERVATION_Z_HALF_LEN, GRID_OBSERVATION_X_HALF_LEN, GRID_OBSERVATION_Y_HALF_LEN, GRID_OBSERVATION_Z_HALF_LEN, self.__handlersXML)
 
 
-class ScenarioBuilder:
-    """
-    Builder for creating a new Malmo mission scenario. Environment and agent attributes are
-    set through members of this object. Every scenario starts with one agent. Upon creating a new ScenarioBuilder, optionally
-    specify a name, starting Vector position, and direction for this agent, otherwise, they will default to "Agent", the origin (0, 0, 0), and
-    north, respectively.
-    """
+class MissionBuilder:
+    '''
+    Builder for creating a new Malmo mission.
+    '''
 
-    def __init__(self, description, timeLimit, agentName = "Agent", startPosition = None, startDirection = None):
+    def __init__(self, description, timeLimit, timeOfDay=TimeOfDay.Noon):
         self.__description = description
         self.__timeLimit = timeLimit
-        self.__timeOfDay = str(TimeOfDay.Noon.value)
+        self.__timeOfDay = timeOfDay.value
         self.environment = EnvironmentBuilder()
-        self.agents = [AgentBuilder(agentName, startPosition, startDirection)]
+        self.agents = {}
 
     def setDescription(self, description):
         """
@@ -245,13 +243,15 @@ class ScenarioBuilder:
         """
         self.__timeOfDay = timeOfDay.value
 
-    def addAgent(self, name, startPosition = None, startDirection = Direction.North):
+    def addAgent(self, name, agentType=AgentType.Hardcoded, startPosition = Vector(0, 0, 0), startDirection = Direction.North):
         """
         Add a new agent to this scenario, giving it a name.
         Optionally specify a starting location as a named Vector, as well as a direction.
         Otherwise, the agent will start at the origin (0, 0, 0) facing north.
         """
-        self.agents.append(AgentBuilder(name, startPosition, startDirection))
+        agent = Agent(name, agentType)
+        self.agents[name] = AgentBuilder(agent.getId(), startPosition, startDirection)
+        return agent
 
     def finish(self):
         """
@@ -286,6 +286,6 @@ class ScenarioBuilder:
                 </ServerHandlers>
             </ServerSection>
             '''.format(self.__description, self.__timeOfDay, "false" if len(mobsList) == 0 else "true", mobsAllowed, self.environment.finish(), self.__timeLimit)
-        for i in range(0, len(self.agents)):
-            returnValue += self.agents[i].finish()
+        for agent in self.agents.values():
+            returnValue += agent.finish()
         return returnValue + "</Mission>"

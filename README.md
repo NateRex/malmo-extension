@@ -1,6 +1,6 @@
 # **malmo-extension** #
 
-malmo-extension is a project that builds upon [Microsoft's Malmo Platform](https://github.com/Microsoft/malmo/). It contains wrappers and utilities for more intuitive mission design. Additionally, logs are automatically generated for each mission, providing a medium for training AI. The project currently only supports Python.
+malmo-extension is a project that builds upon [Microsoft's Malmo Platform](https://github.com/Microsoft/malmo/). It contains wrappers and utilities for more intuitive mission design. Additionally, logs are automatically generated for each mission, providing a medium for training AI. The project currently only supports Python (versions >= 3.6).
 
 ![Capture](https://user-images.githubusercontent.com/34667018/61174155-7506b100-a56a-11e9-98be-cdaa2f086c7d.JPG)
 ___
