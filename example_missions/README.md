@@ -8,13 +8,12 @@ ____
 
 This repository contains several example scripts to get you started creating missions in Malmo using the wrapper. These are located in the same directory as this README. All of the mission scripts follow a simple pattern:
 
-1. Create the agents
-2. Create the environment
-3. Start the Malmo mission (specifying additional logging if necessary)
-4. Define each agent's actions (occurs in a loop)
-5. Cleanup
+1. Create the mission environment
+2. Start the Malmo mission (specifying additional logging if necessary)
+3. Define each agent's actions (occurs in a loop)
+4. Cleanup
 
-For more information, be sure to read the class method documentations!
+For more information, be sure to read the class method documentations.
 
 ____
 
@@ -32,7 +31,7 @@ ____
     ./Minecraft/launchClient.sh
     ```
 
-2. With those up and running, you can now run your mission just as you would any other Python script (Python 3 or higher is required):
+2. With those up and running, you can now run your mission just as you would any other Python script (Python version 3.6 or higher is required):
 
     ```
     python3 <myMission>.py
@@ -40,4 +39,4 @@ ____
 
 3. Once a mission finishes, several files will become available:
     - A single log describing everything that occurred during the mission will be output to a "logs" directory.
-    - A CSV file for EACH agent will be output to a "performance" directory. Each CSV file contains agent statistics over time.
+    - A CSV file for **each agent** will be output to a "performance" directory. Each CSV file contains agent statistics over time.
