@@ -1,6 +1,6 @@
 # **malmo-extension** #
 
-malmo-extension is a project that builds upon [Microsoft's Malmo Platform](https://github.com/Microsoft/malmo/). It contains wrappers and utilities for more intuitive mission design. Additionally, logs are automatically generated for each mission, providing a medium for training AI. The project currently only supports Python (versions >= 3.6).
+malmo-extension is a project that builds upon [Microsoft's Malmo Platform](https://github.com/Microsoft/malmo/). It contains wrappers and utilities for more intuitive mission design. Additionally, logs are automatically generated for each mission, providing a medium for training AI. The project currently only supports Python (version 3.6 or above).
 
 ![Capture](https://user-images.githubusercontent.com/34667018/61174155-7506b100-a56a-11e9-98be-cdaa2f086c7d.JPG)
 ___
@@ -12,9 +12,9 @@ ___
 
 3. Install the malmo-extension package using pip:
     ```
-    pip3 install malmoext==VERSION.*
+    pip3 install malmoext==0.37.*
     ```
 
-    **Note** - The major version of this package should match the minor version of the Malmo Platform. For example, if you downloaded version 0.37.0 of the Malmo Platform, you should download version 37.\* of the malmo-extension package.
+    **Note** - The minor version of this package should match the minor version of the Malmo Platform. For example, if you downloaded version 0.37.0 of the Malmo Platform, you should download version 0.37.\* of the malmo-extension package.
 
 That's it! You are now ready to begin using this Malmo wrapper. Check out the [Mission Guide](https://github.com/NateRex/malmo-extension/tree/master/example_missions#malmo-extension-mission-guide) for details on how to get started building and running Minecraft missions.

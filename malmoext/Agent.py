@@ -76,6 +76,13 @@ class Agent:
         else:
             return None
 
+    def isAlive(self):
+        '''
+        Returns true if this agent is currently alive, false otherwise.
+        '''
+        stateJson = self.getObservationJson()
+        return stateJson["IsAlive"]
+
     def getIndex(self):
         """
         Return the index of this agent in the global list of agents.

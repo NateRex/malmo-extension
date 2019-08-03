@@ -14,7 +14,7 @@ from malmoext import *
 malmoutils.initializeMalmo(2)
 builder = MissionBuilder("Defend Player", 30000, TimeOfDay.Midnight)
 player_agent = builder.addAgent("Player", AgentType.Hardcoded, Vector(0, 4, 0), Direction.North)
-companion_agent = builder.addAgent("Defender", AgentType.Hardcoded, Vector(0, 4, 2), Direction.South)
+defender_agent = builder.addAgent("Defender", AgentType.Hardcoded, Vector(0, 4, 2), Direction.South)
 
 # Add items to the player agent's inventory using the mission builder
 builder.agents["Player"].addInventory(ItemType.All.diamond_helmet, ItemSlot.Armor.Helmet)
@@ -55,31 +55,31 @@ malmoutils.startLogging(
 
 # DEFINE AGENT ACTIONS ===========================================================================================
 
-while player_agent.isMissionActive() or companion_agent.isMissionActive():
+while player_agent.isMissionActive() or defender_agent.isMissionActive():
     Performance.update()    # update performance data
 
-    companion_agent.equip(ItemType.All.diamond_sword)   # ensure sword is equipped
+    defender_agent.equip(ItemType.All.diamond_sword)   # ensure sword is equipped
 
     zombie = player_agent.getClosestHostileMob()    # target closest zombie to the player
     if zombie != None:
-        isLookingAt = companion_agent.lookAtEntity(zombie)
+        isLookingAt = defender_agent.lookAtEntity(zombie)
         if not isLookingAt:
             continue
-        isAt = companion_agent.moveToEntity(zombie)
+        isAt = defender_agent.moveToEntity(zombie)
         if not isAt:
             continue
-        companion_agent.attackMob(zombie)
+        defender_agent.attackMob(zombie)
         continue
 
-    isLookingAt = companion_agent.lookAtAgent(player_agent)     # no zombies.. move to player
+    isLookingAt = defender_agent.lookAtAgent(player_agent)     # no zombies.. move to player
     if not isLookingAt:
         continue
-    isAt = companion_agent.moveToAgent(player_agent)
+    isAt = defender_agent.moveToAgent(player_agent)
     if not isAt:
         continue
 
     # Nothing to do...
-    companion_agent.stopAllMovement()
+    defender_agent.stopAllMovement()
 
 
 
