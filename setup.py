@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setuptools.setup(
      name='malmoext',  
-     version='0.37.0',
+     version='37.0.0',
      author="Nathaniel Rex",
      author_email="nathanieljrex@gmail.com",
      description="An extension to Microsoft's Malmo Project",
