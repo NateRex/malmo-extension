@@ -41,6 +41,8 @@ class Agent:
         self.lastEquippedItem = "None"
         self.lastItemAmount = 0
 
+        self.metadata = Metadata()
+
     def resetClosestEntityRecords(self):
         """
         Resets the information regarding the most recent entities found nearby.
@@ -1150,3 +1152,19 @@ class Agent:
         self.__throwItem__()
         time.sleep(3)   # Wait for agent to pick up item
         return True
+
+    class Metadata:
+        '''
+        Metadata containing current properties/aspects of an agent during a mission.
+        '''
+
+        def __init__(self):
+            self.lookingAt = None
+            self.at = None
+            self.closestMob = None
+            self.closestPeacefulMob = None
+            self.closestHostileMob = None
+            self.closestFoodMob = None
+            self.closestItem = None
+            self.closestFoodItem = None
+            self.equippedItem = None

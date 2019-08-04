@@ -26,43 +26,43 @@ class EnvironmentBuilder:
         """
         Allow for the natural spawning of animals & villagers.
         """
-        self.__allowedMobs.add(MobType.Peaceful.Pig.value)
-        self.__allowedMobs.add(MobType.Peaceful.Sheep.value)
-        self.__allowedMobs.add(MobType.Peaceful.Cow.value)
-        self.__allowedMobs.add(MobType.Peaceful.Chicken.value)
-        self.__allowedMobs.add(MobType.Peaceful.Ozelot.value)
-        self.__allowedMobs.add(MobType.Peaceful.Rabbit.value)
-        self.__allowedMobs.add(MobType.Peaceful.Villager.value)
+        self.__allowedMobs.add(Mobs.Peaceful.Pig.value)
+        self.__allowedMobs.add(Mobs.Peaceful.Sheep.value)
+        self.__allowedMobs.add(Mobs.Peaceful.Cow.value)
+        self.__allowedMobs.add(Mobs.Peaceful.Chicken.value)
+        self.__allowedMobs.add(Mobs.Peaceful.Ozelot.value)
+        self.__allowedMobs.add(Mobs.Peaceful.Rabbit.value)
+        self.__allowedMobs.add(Mobs.Peaceful.Villager.value)
 
     def turnOffAnimalSpawning(self):
         """
         Disallow the natural spawning of animals & villagers.
         """
-        self.__allowedMobs.discard(MobType.Peaceful.Pig.value)
-        self.__allowedMobs.discard(MobType.Peaceful.Sheep.value)
-        self.__allowedMobs.discard(MobType.Peaceful.Cow.value)
-        self.__allowedMobs.discard(MobType.Peaceful.Chicken.value)
-        self.__allowedMobs.discard(MobType.Peaceful.Ozelot.value)
-        self.__allowedMobs.discard(MobType.Peaceful.Rabbit.value)
-        self.__allowedMobs.discard(MobType.Peaceful.Villager.value)
+        self.__allowedMobs.discard(Mobs.Peaceful.Pig.value)
+        self.__allowedMobs.discard(Mobs.Peaceful.Sheep.value)
+        self.__allowedMobs.discard(Mobs.Peaceful.Cow.value)
+        self.__allowedMobs.discard(Mobs.Peaceful.Chicken.value)
+        self.__allowedMobs.discard(Mobs.Peaceful.Ozelot.value)
+        self.__allowedMobs.discard(Mobs.Peaceful.Rabbit.value)
+        self.__allowedMobs.discard(Mobs.Peaceful.Villager.value)
 
     def turnOnMonsterSpawning(self):
         """
         Allow for the natural spawning of monsters.
         """
-        self.__allowedMobs.add(MobType.Hostile.Spider.value)
-        self.__allowedMobs.add(MobType.Hostile.Zombie.value)
-        self.__allowedMobs.add(MobType.Hostile.Skeleton.value)
-        self.__allowedMobs.add(MobType.Hostile.Creeper.value)
+        self.__allowedMobs.add(Mobs.Hostile.Spider.value)
+        self.__allowedMobs.add(Mobs.Hostile.Zombie.value)
+        self.__allowedMobs.add(Mobs.Hostile.Skeleton.value)
+        self.__allowedMobs.add(Mobs.Hostile.Creeper.value)
 
     def turnOffMonsterSpawning(self):
         """
         Disallow for the natural spawning of monsters.
         """
-        self.__allowedMobs.discard(MobType.Hostile.Spider.value)
-        self.__allowedMobs.discard(MobType.Hostile.Zombie.value)
-        self.__allowedMobs.discard(MobType.Hostile.Skeleton.value)
-        self.__allowedMobs.discard(MobType.Hostile.Creeper.value)
+        self.__allowedMobs.discard(Mobs.Hostile.Spider.value)
+        self.__allowedMobs.discard(Mobs.Hostile.Zombie.value)
+        self.__allowedMobs.discard(Mobs.Hostile.Skeleton.value)
+        self.__allowedMobs.discard(Mobs.Hostile.Creeper.value)
 
     def addCube(self, blockType, point0, point1, variant = None):
         """
@@ -70,7 +70,7 @@ class EnvironmentBuilder:
         Each point is specified as a named Vector. If the block type specified is a mob spawner an additional mob type
         must be provided.
         """
-        if (blockType == BlockType.Mob_spawner):
+        if (blockType == Blocks.Mob_spawner):
             if (variant != None):
                 self.__allowedMobs.add(variant.value)   # Ensure the mob is allowed to spawn
                 self.__decoratorsXML += '''<DrawCuboid x1="{}" y1="{}" z1="{}" x2="{}" y2="{}" z2="{}" type="{}" variant="{}"/>'''.format(point0.x, point0.y, point0.z, point1.x, point1.y, point1.z, blockType.value, variant.value)
@@ -82,7 +82,7 @@ class EnvironmentBuilder:
         Add a line of a specific block type from point0 to point1, where each point is specified as a named Vector.
         If the block type specified is a mob spawner, an additional mob type must be provided.
         """
-        if (blockType == BlockType.Mob_spawner):
+        if (blockType == Blocks.Mob_spawner):
             if (variant != None):
                 self.__allowedMobs.add(variant.value)   # Ensure the mob is allowed to spawn
                 self.__decoratorsXML += '''<DrawLine x1="{}" y1="{}" z1="{}" x2="{}" y2="{}" z2="{}" type="{}" variant="{}"/>'''.format(point0.x, point0.y, point0.z, point1.x, point1.y, point1.z, blockType.value, variant.value)
@@ -94,7 +94,7 @@ class EnvironmentBuilder:
         Add a block of a specific type at the location specified. The location should be given as a named Vector.
         If the block type specified is a mob spawner, an additional mob type must be provided.
         """
-        if (blockType == BlockType.Mob_spawner):
+        if (blockType == Blocks.Mob_spawner):
             if (variant != None):
                 self.__allowedMobs.add(variant.value)   # Ensure the mob is allowed to spawn
                 self.__decoratorsXML += '''<DrawBlock x="{}" y="{}" z="{}" type="{}" variant="{}"/>'''.format(location.x, location.y, location.z, blockType.value, variant.value)
@@ -106,7 +106,7 @@ class EnvironmentBuilder:
         Add a sphere of a specific block type, with a given radius and center. The center should be given as a named Vector.
         If the block type specified is a mob spawner, an additional mob type must be provided.
         """
-        if (blockType == BlockType.Mob_spawner):
+        if (blockType == Blocks.Mob_spawner):
             if (variant != None):
                 self.__allowedMobs.add(variant.value)   # Ensure the mob is allowed to spawn
                 self.__decoratorsXML += '''<DrawSphere x="{}" y="{}" z="{}" radius="{}" type="{}" variant="{}"/>'''.format(center.x, center.y, center.z, radius, blockType.value, variant.value)

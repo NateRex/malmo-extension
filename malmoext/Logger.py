@@ -117,120 +117,12 @@ class Logger:
         return Logger.__currentState
 
     @staticmethod
-    def clearLog():
-        """
-        Clear the contents of this log.
-        """
-        Logger.__contents = ""
-
-    @staticmethod
     def __getTime__():
         """
         Internal method for getting a string containing the current time and date.
         """
         return datetime.fromtimestamp(time.time()).strftime('%m-%d-%Y %H:%M:%S.%f')
 
-    @staticmethod
-    def __pushStatement__(value):
-        """
-        Internal method for pushing a new statement onto the trace log.
-        """
-        Logger.__contents.append(value)
-
-    @staticmethod
-    def __pushNewline__():
-        """
-        Ensures that the previous statement is a newline, otherwise, appends one.
-        """
-        if len(Logger.__contents) == 0:
-            return
-        if Logger.__contents[len(Logger.__contents) - 1] != "":
-            Logger.__pushStatement__("")
-
-    @staticmethod
-    def __logAgentDefinition__(agent):
-        """
-        Internal method that logs the definition of a new agentm and adds its id information to the list of declared entities.
-        """
-        agentId = agent.getId()
-        if agentId in Logger.__declaredEntityIds:   # We already logged this agent
-            return
-
-        # Log the definition of the agent
-        agentLog = "agents-{}-{}".format(agentId, agentId[:-1])
-        Logger.__pushStatement__(agentLog)
-        Logger.__currentState.append(agentLog)
-        Logger.__declaredEntityIds.append(agentId)
-
-        # Assume that when defining a new agent, it starts out as alive
-        Logger.logEntityIsAlive(agent, True)
-
-    @staticmethod
-    def logItemDefinition(item):
-        """
-        Internal method that logs the definition of a new item, and adds its id to the list of declared entities.
-        """
-        if item.id in Logger.__declaredEntityIds:   # We already logged this item
-            return
-
-        if isItem(item.type):
-            itemLog = "items-{}-{}".format(item.id, item.type)
-            Logger.__pushStatement__(itemLog)
-            Logger.__currentState.append(itemLog)
-            Logger.__declaredEntityIds.append(item.id)
-
-    @staticmethod
-    def logMobDefinition(mob):
-        """
-        Internal method that logs the definition of a new mob, and adds its id to the list of declared entities.
-        """
-        if mob.id in Logger.__declaredEntityIds:    # We already logged this mob
-            return
-        
-        if isMob(mob.type):
-            # Log mob definition
-            mobLog = "mobs-{}-{}".format(mob.id, mob.type)
-            Logger.__pushStatement__(mobLog)
-            Logger.__currentState.append(mobLog)
-            Logger.__declaredEntityIds.append(mob.id)
-
-            # Assume that when defining a new mob, it starts out as alive
-            Logger.logEntityIsAlive(mob, True)
-
-    @staticmethod
-    def logEntityDefinition(entity):
-        """
-        Internal method that logs the definition of any entity, be it item, block, or mob. This adds its id to the list of declared entities.
-        """
-        if entity.id in Logger.__declaredEntityIds:  # We already logged this entity
-            return
-
-        if isMob(entity.type):  # Mob entity
-            Logger.logMobDefinition(entity)
-        elif isItem(entity.type):   # Item entity
-            Logger.logItemDefinition(entity)
-
-    @staticmethod
-    def logEntityIsAlive(entity, isAlive):
-        """
-        Updates the status of the entity given to isAlive if given True, and isDead otherwise.
-        """
-        if isAlive:
-            logString = "status-{}-alive".format(entity.id)
-        else:
-            logString = "status-{}-dead".format(entity.id)
-        
-        Logger.__pushStatement__(logString)
-
-        # Update the current state
-        didModifyCurrentState = False
-        for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-            if Logger.__currentState[i].startswith("status-{}".format(entity.id)):
-                Logger.__currentState[i] = logString
-                didModifyCurrentState = True
-                break
-        if not didModifyCurrentState:
-            Logger.__currentState.append(logString)
 
     @staticmethod
     def isEntityDefined(entity):
@@ -542,57 +434,6 @@ class Logger:
                 Logger.__currentState.append(closestLog)
 
     __lastLookAtDidFinish = False   # Keep track of whether or not lookAt has finished to log post-conditions ONCE
-
-    @staticmethod
-    def logLookAtStart(agent, entity):
-        """
-        Log the preconditions and action for the LookAt command, provided that it is not a repeat
-        call of the previous LookAt command.
-        """
-        agentId = agent.getId()
-
-        # Ensure this is not a repeat call to do what we were already doing
-        if agent.lastStartedLookingAt == entity.id:
-            return
-
-        Logger.__pushNewline__()
-
-        for i in range(0, len(Logger.__currentState)):  # Fix up current state
-            if Logger.__currentState[i].startswith("looking_at-{}".format(agentId)):
-                Logger.__currentState[i] = "looking_at-{}-None".format(agentId)
-                break
-
-        # This might be an entity not previously declared in the log. Log it if so.
-        Logger.logEntityDefinition(entity)
-
-        # Preconditions - None
-
-        # Action
-        Logger.__pushStatement__("!LOOKAT-{}-{}-{}".format(agentId, agent.lastFinishedLookingAt, entity.id))
-        Logger.__lastLookAtDidFinish = False
-
-    @staticmethod
-    def logLookAtFinish(agent, entity):
-        """
-        Log the postconditions for the LookAt command, since it has ran to completion before looking elsewhere
-        """
-        agentId = agent.getId()
-
-        # Did command already run to completion (and was therefore postconditions were logged)?
-        if Logger.__lastLookAtDidFinish:
-            return
-
-        lookAtLog = "looking_at-{}-{}".format(agentId, entity.id)
-        Logger.__pushStatement__(lookAtLog)
-
-        # Fix up current state
-        for i in range(0, len(Logger.__currentState)):
-            if Logger.__currentState[i].startswith("looking_at-{}".format(agentId)):
-                Logger.__currentState[i] = lookAtLog
-                break
-
-        Logger.__lastLookAtDidFinish = True
-        Logger.__pushNewline__()
 
     __lastMoveToDidFinish = False   # Keep track of whether or not moveTo has finished to log post-conditions ONCE
     

@@ -49,60 +49,11 @@ def isEntityInfoNamedTuple(x):
     if not isinstance(f, tuple): return False
     return all(type(n)==str for n in f)
 
-def isMob(string):
-    """
-    Returns true if the given string is a type of mob.
-    """
-    mobs = [item.value for item in MobType.All]
-    return string in mobs
-
-def isBlock(string):
-    """
-    Returns true if the given string is a type of block.
-    """
-    blocks = [block.value for block in BlockType]
-    return string in blocks
-
-def isHostileMob(string):
-    """
-    Returns true if the given string is a type of hostile mob.
-    """
-    hostileMobs = [item.value for item in MobType.Hostile]
-    return string in hostileMobs
-
-def isPeacefulMob(string):
-    """
-    Returns true if the given string is a type of peaceful mob.
-    """
-    peacefulMobs = [item.value for item in MobType.Peaceful]
-    return string in peacefulMobs
-
-def isFoodMob(string):
-    """
-    Returns true if the given string is a type of mob that drops food items.
-    """
-    foodMobs = [item.value for item in MobType.Food]
-    return string in foodMobs
-
-def isItem(string):
-    """
-    Returns true if the given string is a type of item.
-    """
-    items = [item.value for item in ItemType.All]
-    return string in items
-
-def isFoodItem(string):
-    """
-    Returns true if the given string is a type of food item.
-    """
-    foodItems = [item.value for item in ItemType.Food]
-    return string in foodItems
-
 def stringToBlockEnum(string):
     """
     Converts a plain string to an enum object from BlockType. If it does not exist, returns None.
     """
-    for block in BlockType:
+    for block in Blocks:
         if block.value == string:
             return block
     return None
@@ -111,7 +62,7 @@ def stringToItemEnum(string):
     """
     Converts a plain string to an enum object from ItemType. If it does not exist, returns None.
     """
-    for item in ItemType.All:
+    for item in Items.All:
         if item.value == string:
             return item
     return None
@@ -231,7 +182,7 @@ class AgentType(Enum):
     Trained = "trained"
     Human = "human"
 
-class BlockType(Enum):
+class Blocks(Enum):
     Air = "air"
     Stone = "stone"
     Grass = "grass"
@@ -469,7 +420,14 @@ class BlockType(Enum):
     Black_shulker_box = "black_shulker_box"
     Structure_block = "structure_block"
 
-class ItemType:
+    @classmethod
+    def isBlock(cls, string):
+        '''
+        Returns true if the given string is a member of Blocks
+        '''
+        return string in cls._value2member_map_
+
+class Items:
     class All(Enum):
         iron_shovel = "iron_shovel"
         iron_pickaxe = "iron_pickaxe"
@@ -706,7 +664,21 @@ class ItemType:
         cooked_mutton = "cooked_mutton"
         beetroot_soup = "beetroot_soup"
 
-class ItemSlot:
+    @classmethod
+    def isItem(cls, string):
+        '''
+        Returns true if the given string is a member of Items.All
+        '''
+        return string in cls.All._value2member_map_
+
+    @classmethod
+    def isFoodItem(cls, string):
+        '''
+        Returns true if the given string is a member of Items.Food
+        '''
+        return string in cls.Food._value2member_map_
+
+class InventorySlot:
     class HotBar(Enum):
         _0 = 0
         _1 = 1
@@ -718,7 +690,7 @@ class ItemSlot:
         _7 = 7
         _8 = 8
 
-    class Inventory(Enum):
+    class Main(Enum):
         _9 = 9
         _10 = 10
         _11 = 11
@@ -759,7 +731,7 @@ class Direction(Enum):
     South = 0
     West = 90
 
-class MobType:
+class Mobs:
     class All(Enum):
         Blaze = "Blaze"
         Creeper = "Creeper"
@@ -868,6 +840,34 @@ class MobType:
         MushroomCow = "MushroomCow"
         Rabbit = "Rabbit"
 
+    @classmethod
+    def isMob(cls, string):
+        '''
+        Returns true if the given string is a member of Mobs.All
+        '''
+        return string in cls.All._value2member_map_
+
+    @classmethod
+    def isHostileMob(cls, string):
+        '''
+        Returns true if the given string is a member of Mobs.Hostile
+        '''
+        return string in cls.Hostile._value2member_map_
+
+    @classmethod
+    def isPeacefulMob(cls, string):
+        '''
+        Returns true if the given string is a member of Mobs.Peaceful
+        '''
+        return string in cls.Peaceful._value2member_map_
+
+    @classmethod
+    def isFoodMob(cls, string):
+        '''
+        Returns true if the given string is a member of Mobs.Food
+        '''
+        return string in cls.Food._value2member_map_
+        
 
 class TimeOfDay(Enum):
     Dawn = 0
