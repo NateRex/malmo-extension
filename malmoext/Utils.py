@@ -32,8 +32,7 @@ GRID_OBSERVATION_Z_HALF_LEN = int(GRID_OBSERVATION_Z_LEN / 2)
 # ==============================================================================================
 
 Vector = namedtuple("Vector", "x y z")                               # Vector/Position holding x, y, and z values
-EntityInfo = namedtuple("EntityInfo", "id type position quantity")   # Information for an entity observed by an agent
-Action = namedtuple("Action", "function args")                       # A function with a corresponding list of arguments
+Entity = namedtuple("EntityInfo", "id type position quantity")       # Information for an entity observed by an agent
 Item = namedtuple("Item", "id type")                                 # An item with an associated id
 RecipeItem = namedtuple("RecipeItem", "type quantity")               # An item that is part of a recipe for crafting
 
@@ -80,17 +79,16 @@ def numerifyId(string):
 # Classes
 # ==============================================================================================
 
-class MathExt:
-    """
-    An extension of the math module to support vector operations and calculations within tolerance.
-    """
-
+class MathUtils:
+    '''
+    A collection of static functions for working with 3D vectors.
+    '''
     PI_OVER_TWO = math.pi / 2
     THREE_PI_OVER_TWO = 3 * math.pi / 2
     TWO_PI = math.pi * 2
 
     @staticmethod
-    def valuesAreEqual(a, b, tol = 0):
+    def valuesAreEqual(a, b, tol = 1.0e-14):
         """
         Returns true if two numeric values are equal. Optionally supply a tolerance.
         """
@@ -144,8 +142,8 @@ class MathExt:
         Normalize a Vector into the range (-1, -1, -1) to (1, 1, 1) and return it.
         If the given Vector is the zero vector, returns the zero vector.
         """
-        mag = MathExt.vectorMagnitude(vector)
-        if MathExt.valuesAreEqual(mag, 0, 1.0e-14):
+        mag = MathUtils.vectorMagnitude(vector)
+        if MathUtils.valuesAreEqual(mag, 0, 1.0e-14):
             return Vector(0, 0, 0)
         else:
             return Vector(vector.x / mag, vector.y / mag, vector.z / mag)
@@ -173,16 +171,35 @@ class MathExt:
         """
         return Vector(vectorA.x - vectorB.x, vectorA.y - vectorB.y, vectorA.z - vectorB.z)
 
+class LogUtils:
+    '''
+    A collection of named tuples to make conveying information from the Agent class to the Logger easier.
+    '''
+    ClosestMobReport   = namedtuple("ClosestMobReport", "reportType variant result")
+    ClosestItemReport  = namedtuple("ClosestItemReport", "reportType variant result")
+    LookAtReport       = namedtuple("LookAtReport", "reportType entity")
+    MoveToReport       = namedtuple("MoveToReport", "reportType entity")
+    CraftReport        = namedtuple("CraftReport", "reportType item recipe")
+    AttackReport       = namedtuple("AttackReport", "reportType mob didKill")
+    EquipReport        = namedtuple("EquipReport", "reportType item")
+    GiveItemReport     = namedtuple("GiveItemReport", "reportType item agent")
+
 # ==============================================================================================
 # Enumerated Types
 # ==============================================================================================
 
 class AgentType(Enum):
+    '''
+    A type of Agent.
+    '''
     Hardcoded = "hardcoded"
     Trained = "trained"
     Human = "human"
 
 class Blocks(Enum):
+    '''
+    A type of Minecraft block.
+    '''
     Air = "air"
     Stone = "stone"
     Grass = "grass"
@@ -421,14 +438,21 @@ class Blocks(Enum):
     Structure_block = "structure_block"
 
     @classmethod
-    def isBlock(cls, string):
+    def isMember(cls, string):
         '''
         Returns true if the given string is a member of Blocks
         '''
         return string in cls._value2member_map_
 
 class Items:
+    '''
+    A type of Minecraft item.
+    '''
+
     class All(Enum):
+        '''
+        A type of Minecraft item.
+        '''
         iron_shovel = "iron_shovel"
         iron_pickaxe = "iron_pickaxe"
         iron_axe = "iron_axe"
@@ -637,7 +661,17 @@ class Items:
         record_11 = "record_11"
         record_wait = "record_wait"
 
+        @classmethod
+        def isMember(cls, string):
+            '''
+            Returns true if the given string is a member of Items.All
+            '''
+            return string in cls._value2member_map_
+
     class Food(Enum):
+        '''
+        A type of Minecraft food item.
+        '''
         apple = "apple"
         mushroom_stew = "mushroom_stew"
         bread = "bread"
@@ -664,22 +698,21 @@ class Items:
         cooked_mutton = "cooked_mutton"
         beetroot_soup = "beetroot_soup"
 
-    @classmethod
-    def isItem(cls, string):
-        '''
-        Returns true if the given string is a member of Items.All
-        '''
-        return string in cls.All._value2member_map_
-
-    @classmethod
-    def isFoodItem(cls, string):
-        '''
-        Returns true if the given string is a member of Items.Food
-        '''
-        return string in cls.Food._value2member_map_
+        @classmethod
+        def isMember(cls, string):
+            '''
+            Returns true if the given string is a member of Items.Food
+            '''
+            return string in cls._value2member_map_
 
 class InventorySlot:
+    '''
+    A Minecraft inventory slot.
+    '''
     class HotBar(Enum):
+        '''
+        A Minecraft inventory slot along the hotbar.
+        '''
         _0 = 0
         _1 = 1
         _2 = 2
@@ -691,6 +724,9 @@ class InventorySlot:
         _8 = 8
 
     class Main(Enum):
+        '''
+        A Minecraft inventory slot in an agent's main inventory.
+        '''
         _9 = 9
         _10 = 10
         _11 = 11
@@ -720,19 +756,31 @@ class InventorySlot:
         _35 = 35
     
     class Armor(Enum):
+        '''
+        A Minecraft inventory slot that defines places to equip armor.
+        '''
         Boots = 36
         Leggings = 37
         Chestplate = 38
         Helmet = 39
 
 class Direction(Enum):
+    '''
+    A compass direction in Minecraft.
+    '''
     North = 180
     East = -90
     South = 0
     West = 90
 
 class Mobs:
+    '''
+    A type of Minecraft mob.
+    '''
     class All(Enum):
+        '''
+        A type of Minecraft mob.
+        '''
         Blaze = "Blaze"
         Creeper = "Creeper"
         ElderGuardian = "ElderGuardian"
@@ -780,8 +828,18 @@ class Mobs:
         PolarBear = "PolarBear"
         Llama = "Llama"
         Villager = "Villager"
+
+        @classmethod
+        def isMember(cls, string):
+            '''
+            Returns true if the given string is a member of Mobs.All
+            '''
+            return string in cls._value2member_map_
 
     class Hostile(Enum):
+        '''
+        A type of hostile Minecraft mob.
+        '''
         Blaze = "Blaze"
         Creeper = "Creeper"
         ElderGuardian = "ElderGuardian"
@@ -806,7 +864,17 @@ class Mobs:
         ZombieVillager = "ZombieVillager"
         Zombie = "Zombie"
 
+        @classmethod
+        def isMember(cls, string):
+            '''
+            Returns true if the given string is a member of Mobs.Hostile
+            '''
+            return string in cls._value2member_map_
+
     class Peaceful(Enum):
+        '''
+        A type of peaceful Minecraft mob.
+        '''
         ZombieHorse = "ZombieHorse"
         Giant = "Giant"
         PigZombie = "PigZombie"
@@ -832,7 +900,17 @@ class Mobs:
         Llama = "Llama"
         Villager = "Villager"
 
+        @classmethod
+        def isMember(cls, string):
+            '''
+            Returns true if the given string is a member of Mobs.Peaceful
+            '''
+            return string in cls._value2member_map_
+
     class Food(Enum):
+        '''
+        A type of Minecraft mob that potentially drops food when killed.
+        '''
         Pig = "Pig"
         Sheep = "Sheep"
         Cow = "Cow"
@@ -840,44 +918,18 @@ class Mobs:
         MushroomCow = "MushroomCow"
         Rabbit = "Rabbit"
 
-    @classmethod
-    def isMob(cls, string):
-        '''
-        Returns true if the given string is a member of Mobs.All
-        '''
-        return string in cls.All._value2member_map_
-
-    @classmethod
-    def isHostileMob(cls, string):
-        '''
-        Returns true if the given string is a member of Mobs.Hostile
-        '''
-        return string in cls.Hostile._value2member_map_
-
-    @classmethod
-    def isPeacefulMob(cls, string):
-        '''
-        Returns true if the given string is a member of Mobs.Peaceful
-        '''
-        return string in cls.Peaceful._value2member_map_
-
-    @classmethod
-    def isFoodMob(cls, string):
-        '''
-        Returns true if the given string is a member of Mobs.Food
-        '''
-        return string in cls.Food._value2member_map_
+        @classmethod
+        def isMember(cls, string):
+            '''
+            Returns true if the given string is a member of Mobs.Food
+            '''
+            return string in cls._value2member_map_
         
-
 class TimeOfDay(Enum):
+    '''
+    A time of day in Minecraft.
+    '''
     Dawn = 0
     Noon = 6000
     Sunset = 12000
     Midnight = 18000
-
-class AgentCommands(Enum):
-    MoveTo = 0
-    Attack = 1
-    Craft = 2
-    GiveItem = 3
-    UseItem = 4

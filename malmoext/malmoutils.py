@@ -200,12 +200,24 @@ def __safeWaitForStart__(agent_hosts):
     print("Mission has started.")
 
 def startMission():
+    '''
+    Start the mission previously loaded.
+    '''
     i = 0
     agent_hosts = list(map(lambda x: x.host, AGENTS))
     for host in agent_hosts:
         __safeMissionStart__(host, MISSION, CLIENT_POOL, __get_default_recording_object__(agent_hosts[0], "agent_{}_viewpoint_continuous".format(i + 1)), i, '')
         i += 1
     __safeWaitForStart__(agent_hosts)
+
+def isMissionActive():
+    '''
+    Returns true if the mission is still active/running, false otherwise.
+    '''
+    for agent in Agent.agentList:
+        if agent.isMissionActive():
+            return True
+    return False
 
 def startLogging(*agentMaskList):
     '''

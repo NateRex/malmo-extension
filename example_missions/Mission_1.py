@@ -55,7 +55,7 @@ malmoutils.startLogging(
 
 # DEFINE AGENT ACTIONS ===========================================================================================
 
-while player_agent.isMissionActive() or defender_agent.isMissionActive():
+while malmoutils.isMissionActive():
     Performance.update()    # update performance data
 
     defender_agent.equip(Items.All.diamond_sword)   # ensure sword is equipped

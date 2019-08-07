@@ -18,30 +18,30 @@ class Agent:
     """
     agentList = []  # A list of all agents that have been created
 
-    def __init__(self, name, agentType):
-        self.host = MalmoPython.AgentHost()     # A reference to a Malmo AgentHost object
-        self.agentType = agentType              # The AgentType for this agent
-        self.inventory = AgentInventory(self)   # This agent's inventory
-        self.performance = None                 # This agent's performance data (not collected unless this agent is manually passed to the Performance class)
-        self.id = "{}1".format(name)            # The ID of this agent
-        self.actionOverride = None              # An function pointer that, if present, is ran instead of any called actions
-        Agent.agentList.append(self)            # Add this agent to the global list of all agents
+    # def __init__(self, name, agentType):
+    #     self.host = MalmoPython.AgentHost()     # A reference to a Malmo AgentHost object
+    #     self.agentType = agentType              # The AgentType for this agent
+    #     self.inventory = AgentInventory(self)   # This agent's inventory
+    #     self.performance = None                 # This agent's performance data (not collected unless this agent is manually passed to the Performance class)
+    #     self.id = "{}1".format(name)            # The ID of this agent
+    #     self.actionOverride = None              # An function pointer that, if present, is ran instead of any called actions
+    #     Agent.agentList.append(self)            # Add this agent to the global list of all agents
 
-        # Recorded information for previous state/action observations used for checking state changes and logging
-        self.lastWorldState = None
-        self.lastStartedLookingAt = ""
-        self.lastFinishedLookingAt = "None"
-        self.lastStartedMovingTo = ""
-        self.lastFinishedMovingTo = "None"
-        self.lastClosestMob = ""
-        self.lastClosestPeacefulMob = ""
-        self.lastClosestHostileMob = ""
-        self.lastClosestFoodMob = ""
-        self.lastClosestFoodItem = ""
-        self.lastEquippedItem = "None"
-        self.lastItemAmount = 0
+    #     # Recorded information for previous state/action observations used for checking state changes and logging
+    #     self.lastWorldState = None
+    #     self.lastStartedLookingAt = ""
+    #     self.lastFinishedLookingAt = "None"
+    #     self.lastStartedMovingTo = ""
+    #     self.lastFinishedMovingTo = "None"
+    #     self.lastClosestMob = ""
+    #     self.lastClosestPeacefulMob = ""
+    #     self.lastClosestHostileMob = ""
+    #     self.lastClosestFoodMob = ""
+    #     self.lastClosestFoodItem = ""
+    #     self.lastEquippedItem = "None"
+    #     self.lastItemAmount = 0
 
-        self.metadata = Metadata()
+    #     self.metadata = Metadata()
 
     def resetClosestEntityRecords(self):
         """
@@ -53,20 +53,20 @@ class Agent:
         self.lastClosestFoodMob = ""
         self.lastClosestFoodItem = ""
 
-    def isMissionActive(self):
-        """
-        Returns true if this agent's mission is still running.
-        """
-        return self.host.peekWorldState().is_mission_running
+    # def isMissionActive(self):
+    #     """
+    #     Returns true if this agent's mission is still running.
+    #     """
+    #     return self.host.peekWorldState().is_mission_running
 
-    def getObservationJson(self):
-        """
-        Returns the entire world state containing the most recent observations as a JSON object.
-        """
-        agentState = self.host.getWorldState()
-        if len(agentState.observations) > 0:
-            self.lastWorldState = json.loads(agentState.observations[-1].text)
-        return self.lastWorldState
+    # def getObservationJson(self):
+    #     """
+    #     Returns the entire world state containing the most recent observations as a JSON object.
+    #     """
+    #     agentState = self.host.getWorldState()
+    #     if len(agentState.observations) > 0:
+    #         self.lastWorldState = json.loads(agentState.observations[-1].text)
+    #     return self.lastWorldState
 
     def getBlockGrid(self):
         """
@@ -78,12 +78,12 @@ class Agent:
         else:
             return None
 
-    def isAlive(self):
-        '''
-        Returns true if this agent is currently alive, false otherwise.
-        '''
-        stateJson = self.getObservationJson()
-        return stateJson["IsAlive"]
+    # def isAlive(self):
+    #     '''
+    #     Returns true if this agent is currently alive, false otherwise.
+    #     '''
+    #     stateJson = self.getObservationJson()
+    #     return stateJson["IsAlive"]
 
     def getIndex(self):
         """
@@ -389,7 +389,7 @@ class Agent:
         worldState = self.getObservationJson()
         if worldState == None:
             return None
-        entities = [EntityInfo("{}{}".format(k["name"], numerifyId(k["id"]).replace("-", "")), k["name"], Vector(k["x"], k["y"], k["z"]), k.get("quantity")) for k in worldState["nearby_entities"]]
+        entities = [Entity("{}{}".format(k["name"], numerifyId(k["id"]).replace("-", "")), k["name"], Vector(k["x"], k["y"], k["z"]), k.get("quantity")) for k in worldState["nearby_entities"]]
         return entities
 
     def getNearbyEntityById(self, entityId):
@@ -416,7 +416,7 @@ class Agent:
         for entity in entities:   # First entity is always the agent itself
             if isMob(entity.type):
                 entityPos = entity.position
-                distanceToEntity = MathExt.distanceBetweenPoints(agentPos, entityPos)
+                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
                 if distanceToEntity < nearestDistance:
                     nearestDistance = distanceToEntity
                     nearestEntity = entity
@@ -443,7 +443,7 @@ class Agent:
         for entity in entities:
             if isPeacefulMob(entity.type):
                 entityPos = entity.position
-                distanceToEntity = MathExt.distanceBetweenPoints(agentPos, entityPos)
+                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
                 if distanceToEntity < nearestDistance:
                     nearestDistance = distanceToEntity
                     nearestEntity = entity
@@ -470,7 +470,7 @@ class Agent:
         for entity in entities:
             if isHostileMob(entity.type):
                 entityPos = entity.position
-                distanceToEntity = MathExt.distanceBetweenPoints(agentPos, entityPos)
+                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
                 if distanceToEntity < nearestDistance:
                     nearestDistance = distanceToEntity
                     nearestEntity = entity
@@ -497,7 +497,7 @@ class Agent:
         for entity in entities:
             if isFoodMob(entity.type):
                 entityPos = entity.position
-                distanceToEntity = MathExt.distanceBetweenPoints(agentPos, entityPos)
+                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
                 if distanceToEntity < nearestDistance:
                     nearestDistance = distanceToEntity
                     nearestEntity = entity
@@ -524,7 +524,7 @@ class Agent:
         for entity in entities:
             if isFoodItem(entity.type):
                 entityPos = entity.position
-                distanceToEntity = MathExt.distanceBetweenPoints(agentPos, entityPos)
+                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
                 if distanceToEntity < nearestDistance:
                     nearestDistance = distanceToEntity
                     nearestEntity = entity
@@ -568,7 +568,7 @@ class Agent:
                         xDiff = x - GRID_OBSERVATION_X_HALF_LEN
                         yDiff = y - GRID_OBSERVATION_Y_HALF_LEN
                         zDiff = z - GRID_OBSERVATION_Z_HALF_LEN
-                        return EntityInfo("someBlock...", blockType.value, Vector(currentPos.x + xDiff, currentPos.y + yDiff, currentPos.z + zDiff), 1)
+                        return Entity("someBlock...", blockType.value, Vector(currentPos.x + xDiff, currentPos.y + yDiff, currentPos.z + zDiff), 1)
                     index += 1
         return None
 
@@ -602,27 +602,27 @@ class Agent:
         if worldState == None or agentPos == None:
             return False    
         currentAngle = worldState["Yaw"] if worldState["Yaw"] >= 0 else 360.0 - abs(worldState["Yaw"])
-        vector = MathExt.vectorFromPoints(agentPos, targetPosition)
-        vector = MathExt.normalizeVector(vector)
+        vector = MathUtils.vectorFromPoints(agentPos, targetPosition)
+        vector = MathUtils.normalizeVector(vector)
 
         # Get the angle that we wish to face
         targetAngle = None
-        if MathExt.valuesAreEqual(vector.x, 0, 1.0e-14): # Avoid dividing by 0
+        if MathUtils.valuesAreEqual(vector.x, 0, 1.0e-14): # Avoid dividing by 0
             if vector.z >= 0:
-                targetAngle = -MathExt.PI_OVER_TWO
+                targetAngle = -MathUtils.PI_OVER_TWO
             else:
-                targetAngle = MathExt.PI_OVER_TWO
+                targetAngle = MathUtils.PI_OVER_TWO
         else:
             targetAngle = math.atan(vector.z / vector.x)
     
         # Adjust angle based on quadrant of vector
         if vector.x <= 0:   # Quadrant 1 or 2
-            targetAngle = MathExt.PI_OVER_TWO + targetAngle
+            targetAngle = MathUtils.PI_OVER_TWO + targetAngle
         elif vector.x > 0:  # Quadrant 3 or 4
-            targetAngle = MathExt.THREE_PI_OVER_TWO + targetAngle
+            targetAngle = MathUtils.THREE_PI_OVER_TWO + targetAngle
 
         targetAngle = math.degrees(targetAngle)
-        if MathExt.valuesAreEqual(targetAngle, 360.0, 1.0e-14):
+        if MathUtils.valuesAreEqual(targetAngle, 360.0, 1.0e-14):
             targetAngle = 0
 
         # Get difference between the two angles
@@ -648,7 +648,7 @@ class Agent:
         elif diff > 2:
             rate = .05 * multiplier
         else:
-            rate = MathExt.affineTransformation(diff, 0.0, 180.0, 0, 1.0) * multiplier
+            rate = MathUtils.affineTransformation(diff, 0.0, 180.0, 0, 1.0) * multiplier
 
         return rate
 
@@ -661,14 +661,14 @@ class Agent:
         if worldState == None or agentPos == None:
             return False  
         currentAngle = worldState["Pitch"]
-        vectorWithHeight = MathExt.vectorFromPoints(agentPos, targetPosition)
-        vectorWithHeight = MathExt.normalizeVector(vectorWithHeight)
+        vectorWithHeight = MathUtils.vectorFromPoints(agentPos, targetPosition)
+        vectorWithHeight = MathUtils.normalizeVector(vectorWithHeight)
         vectorWithoutHeight = Vector(vectorWithHeight.x, 0, vectorWithHeight.z)
 
         # Get the angle that we wish to change the pitch to (account for range -90 to 90)
-        if MathExt.isZeroVector(vectorWithHeight) or MathExt.isZeroVector(vectorWithoutHeight): # Avoid dividing by 0
+        if MathUtils.isZeroVector(vectorWithHeight) or MathUtils.isZeroVector(vectorWithoutHeight): # Avoid dividing by 0
             return False
-        cosValue = MathExt.dotProduct(vectorWithHeight, vectorWithoutHeight) / (MathExt.vectorMagnitude(vectorWithHeight) * MathExt.vectorMagnitude(vectorWithoutHeight))
+        cosValue = MathUtils.dotProduct(vectorWithHeight, vectorWithoutHeight) / (MathUtils.vectorMagnitude(vectorWithHeight) * MathUtils.vectorMagnitude(vectorWithoutHeight))
         if cosValue > 1:
             cosValue = 1
         elif cosValue < -1:
@@ -700,7 +700,7 @@ class Agent:
         elif diff > 2:
             rate = .05 * multiplier
         else:
-            rate = MathExt.affineTransformation(diff, 0.0, 180.0, 0, 1.0) * multiplier
+            rate = MathUtils.affineTransformation(diff, 0.0, 180.0, 0, 1.0) * multiplier
         return rate
 
     def __isLookingAt__(self, targetPosition):
@@ -709,7 +709,7 @@ class Agent:
         """
         # Our tolerance depends on how close we are to the object
         agentPos = self.getPosition()
-        distanceFromTarget = MathExt.distanceBetweenPoints(agentPos, targetPosition)
+        distanceFromTarget = MathUtils.distanceBetweenPoints(agentPos, targetPosition)
         yawRate = self.__getYawRateToFacePosition__(targetPosition)
         pitchRate = self.__getPitchRateToFacePosition__(targetPosition)
         if distanceFromTarget > 7:
@@ -729,7 +729,7 @@ class Agent:
         agentPos = self.getPosition()
         if agentPos == None:
             return False
-        distanceFromTarget = MathExt.distanceBetweenPoints(agentPos, targetPosition)
+        distanceFromTarget = MathUtils.distanceBetweenPoints(agentPos, targetPosition)
         yawRate = self.__getYawRateToFacePosition__(targetPosition)
         pitchRate = self.__getPitchRateToFacePosition__(targetPosition)
         self.__startChangingYaw__(yawRate)
@@ -781,7 +781,7 @@ class Agent:
             return False
 
         # Represent the agent as an EntityInfo tuple
-        agentEntity = EntityInfo(agentId, "agent", agentPos, 1)
+        agentEntity = Entity(agentId, "agent", agentPos, 1)
 
         Logger.logLookAtStart(self, agentEntity)
         self.lastStartedLookingAt = agentId
@@ -804,7 +804,7 @@ class Agent:
         if agentPos == None:
             return False
 
-        distance = MathExt.distanceBetweenPointsXZ(agentPos, targetPosition)
+        distance = MathUtils.distanceBetweenPointsXZ(agentPos, targetPosition)
         if distance > tol:
             return False
         
@@ -820,7 +820,7 @@ class Agent:
         if agentPos == None:
             return False
 
-        distance = MathExt.distanceBetweenPointsXZ(agentPos, targetPosition)
+        distance = MathUtils.distanceBetweenPointsXZ(agentPos, targetPosition)
 
         if distance < tol and distance > minDistance:
             if hardStop:
@@ -915,7 +915,7 @@ class Agent:
             return False
         
         # Represent the agent as an EntityInfo tuple
-        agentEntity = EntityInfo(agentId, "agent", agentPos, 1)
+        agentEntity = Entity(agentId, "agent", agentPos, 1)
 
         # PRECONDITIONS
         if self.actionOverride == None:
@@ -1028,7 +1028,7 @@ class Agent:
                 return False
 
         self.__startAttacking__()
-        self.stopAllMovement()  # Momentarily stop all movement to check if we killed the entity
+        self.stopAllMovement()    # Momentarily stop all movement to check if we killed the entity
         time.sleep(0.5)           # Prevents spamming of the attack action
         newMobsKilled = self.getMobsKilled()
 
@@ -1042,7 +1042,9 @@ class Agent:
     def equip(self, item):
         """
         Changes the currently equipped item to something in this agent's inventory. This can cause items to be
-        swapped from the hot-bar. Returns true if the specified item is equipped. Returns false otherwise.
+        swapped from the hot-bar. 
+        
+        Returns true if the specified item is equipped. Returns false otherwise.
         """
         # Check action override
         if self.actionOverride != None and self.actionOverride.function != self.equip:

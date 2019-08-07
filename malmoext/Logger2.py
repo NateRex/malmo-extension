@@ -1,8 +1,8 @@
 import os
 import time
 from datetime import datetime
-from malmoext.Utils import Mobs, Items
-from malmoext.Agent import Agent
+from malmoext.Utils import Mobs, Items, LogUtils
+from malmoext.Agent2 import Agent
 
 class Logger:
     '''
@@ -84,49 +84,46 @@ class Logger:
         Define a new agent in the log. If the agent was previously defined, this method has no
         effect.
         '''
-        agentId = agent.id
         if agent.id in self.__currentState.agents:
             return
 
         # Add to log
-        self.__appendLine("agents-{}-{}".format(agentId, agentId[:-1]))
+        self.__appendLine("agents-{}-{}".format(agent.id, agent.id[:-1]))
         self.__logIsAlive(agent, agent.isAlive())
         
         # Update current state
         self.__currentState.agents[agentId] = agent.metadata
-        self.__currentState.alive.add(agentId)
+        self.__currentState.alive.add(agent.id)
 
     def __logMob(self, mob):
         '''
         Define a new mob in the log. If the mob was previously defined, this method has no
         effect.
         '''
-        mobId = mob.id
-        if mobId in self.__currentState.mobs:
+        if mob.id in self.__currentState.mobs:
             return
 
         # Add to log
-        self.__appendLine("mobs-{}-{}".format(mobId, mob.type))
+        self.__appendLine("mobs-{}-{}".format(mob.id, mob.type))
         self.__logIsAlive(mob, True)    # assume is alive
 
         # Update current state
-        self.__currentState.mobs.add(mobId)
-        self.__currentState.alive.add(mobId)
+        self.__currentState.mobs.add(mob.id)
+        self.__currentState.alive.add(mob.id)
 
     def __logItem(self, item):
         '''
         Define a new item in the log. If the item was previously defined, this method has no
         effect.
         '''
-        itemId = item.id
-        if itemId in self.__currentState.items:
+        if item.id in self.__currentState.items:
             return
         
         # Add to log
-        self.__appendLine("items-{}-{}".format(itemId, item.type))
+        self.__appendLine("items-{}-{}".format(item.id, item.type))
         
         # Update current state
-        self.__currentState.items.add(itemId)
+        self.__currentState.items.add(item.id)
 
     def __logEntity(self, entity):
         '''
@@ -135,9 +132,9 @@ class Logger:
         '''
         if isinstance(entity, Agent):
             self.__lognewAgent(entity)
-        elif Mobs.isMob(entity.type):
+        elif Mobs.All.isMember(entity.type):
             self.__logMob(entity)
-        elif Items.isItem(entity.type):
+        elif Items.All.isMember(entity.type):
             self.__logItem(entity)
 
     def __logEntities(self, *entities):
@@ -148,19 +145,43 @@ class Logger:
         for entity in entities:
             self.__logEntity(entity)
 
-    def __logClosestMob(self, agent, mob, variant=""):
+    def __logClosestMob(self, agent, mob, variant=Mobs.All):
         '''
         Log the closest mob to an agent. Optionally specify additional modifiers for what type of
         mob it is. 
         '''
-        print("TODO")
+        if variant == Mobs.All:
+            prefix = "closest_mob-"
+        elif variant == Mobs.Peaceful:
+            prefix = "closest_peaceful_mob-"
+        elif variant == Mobs.Hostile:
+            prefix = "closest_hostile_mob-"
+        elif variant == Mobs.Food:
+            prefix = "closest_food_mob-"
+        else:
+            raise Exception("Closest mob variant must be an enumerated type")
 
-    def __logClosestItem(self, agent, item, variant=""):
+        if mob == None:
+            self.__appendLine("{}{}-None".format(prefix, agent.id))
+        else:
+            self.__appendLine("{}{}-{}".format(prefix, agent.id, mob.id))
+
+    def __logClosestItem(self, agent, item, variant=Items.All):
         '''
         Log the closest item to an agent. Optionally specify additional modifiers for what type of
         item it is.
         '''
-        print("TODO")
+        if variant == Items.All:
+            prefix = "closest_item-"
+        elif variant == Items.Food:
+            prefix = "closest_food_item-"
+        else:
+            raise Exception("Closest item variant must be an enumerated type")
+
+        if item == None:
+            self.__appendLine("{}{}-None".format(prefix, agent.id))
+        else:
+            self.__appendLine("{}{}-{}".format(prefix, agent.id, item.id))
 
     def __logLookAt(self, agent, fromEntity, toEntity):
         '''
@@ -267,6 +288,87 @@ class Logger:
         # Postconditions
         self.__appendLine("equipped_item-{}-None".format(fromAgent.id))
         self.__appendLine("at-{}-{}".format(item.id, toAgent.id))
+
+    def __handleClosestMobReport(self, agent, logReport):
+        '''
+        Handle a ClosestMobReport from an agent.
+        '''
+        print("TODO")
+
+    def __handleClosestItemReport(self, agent, logReport):
+        '''
+        Handle a ClosestItemReport from an agent.
+        '''
+        print("TODO")
+
+    def __handleLookAtReport(self, agent, logReport):
+        '''
+        Handle a LookAtReport from an agent.
+        '''
+        print("TODO")
+
+    def __handleMoveToReport(self, agent, logReport):
+        '''
+        Handle a MoveToReport from an agent.
+        '''
+        print("TODO")
+
+    def __handleCraftReport(self, agent, logReport):
+        '''
+        Handle a CraftReport from an agent.
+        '''
+        print("TODO")
+    
+    def __handleAttackReport(self, agent, logReport):
+        '''
+        Handle an AttackReport from an agent.
+        '''
+        print("TODO")
+
+    def __handleEquipReport(self, agent, logReport):
+        '''
+        Handle an EquipReport from an agent.
+        '''
+        print("TODO")
+
+    def __handleGiveItemReport(self, agent, logReport):
+        '''
+        Handle a GiveItemReport from an agent.
+        '''
+        print("TODO")
+
+    def __handleAgentLogReports(self, agent):
+        '''
+        Produce a log for any agent log reports that are not repeats from the last iteration.
+        '''
+        logReports = agent.getAndClearLogReports()
+        for logReport in logReport:
+            logReportType = type(logReport).__name__
+            if logReportType == "ClosestMobReport":
+                self.__handleClosestMobReport(agent, logReport)
+            elif logReportType == "ClosestItemReport":
+                self.__handleClosestItemReport(agent, logReport)
+            elif logReportType == "LookAtReport":
+                self.__handleLookAtReport(agent, logReport)
+            elif logReportType == "MoveToReport":
+                self.__handleMoveToReport(agent, logReport)
+            elif logReportType == "CraftReport":
+                self.__handleCraftReport(agent, logReport)
+            elif logReportType == "AttackReport":
+                self.__handleAttackReport(agent, logReport)
+            elif logReportType == "EquipReport":
+                self.__handleEquipReport(agent, logReport)
+            elif logReportType == "GiveItemReport":
+                self.__handleGiveItemReport(agent, logReport)
+            else:
+                raise Exception("Unhandled log report type: {}".format(logReportType))
+
+    def update(self):
+        '''
+        Produce logs for all agents if any updates have occurred.
+        '''
+        for agent in Agent.allAgents:
+            self.__handleAgentLogReports(agent)
 
     def exportToFile(self):
         '''

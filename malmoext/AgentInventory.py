@@ -177,6 +177,54 @@ class AgentInventory:
             return 0
         return len(self.__inventory__[itemType])
 
+    def itemIndex(self, itemType):
+        '''
+        Returns the index of an item in this inventory corresponding to inventory slots in-game.
+        Returns None if the agent does not carry the item.
+        '''
+        inventoryJSON = self.__agent__.toJSON()["inventory"]
+        for item in inventoryJSON:
+            if item["type"] == itemType.value:
+                return item["index"]
+        return None
+
+    def nextUnusedHotbarIndex(self):
+        '''
+        Returns the index of a hotbar inventory slot that is not currently in use.
+        Returns None if all hotbar slots are in use.
+        '''
+        inventoryJSON = self.__agent__.toJSON()["inventory"]
+
+        # Get all inventory slots in use
+        slotsInUse = set()
+        for item in inventoryJSON:
+            if item["index"] < 9:
+                slotsInUse.add(item["index"])
+        
+        # Find first hotbar slot (0-9) not in use, if any
+        for i in range(0, 9):
+            if i not in slotsInUse:
+                return i
+        return None
+
+    def equippedIndex(self):
+        '''
+        Get the current hotbar index equipped by the agent.
+        '''
+        return self.__agent__.toJSON()["currentItemIndex"]
+
+    def equippedItem(self):
+        '''
+        Returns the currently equipped item of the agent. Returns None if no item is equipped.
+        '''
+        inventoryJSON = self.__agent__.toJSON()["inventory"]
+        currentIndex = self.equippedIndex()
+
+        for item in inventoryJSON:
+            if item["index"] == currentIndex:
+                return self.itemByType(stringToItemEnum(item["type"]))
+        return None
+
     def printOut(self):
         """
         DEBUG ONLY
