@@ -190,7 +190,7 @@ class Inventory:
         '''
         Returns the currently equipped item. Returns None if no item is equipped.
         '''
-        json = self.__agent__.toJSON()["inventory"]
+        json = self.__agent.toJSON()["inventory"]
         currentIndex = self.equippedIndex()
 
         for item in json:

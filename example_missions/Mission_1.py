@@ -47,7 +47,7 @@ builder.environment.addMob(Mobs.Hostile.Zombie, Vector(5, 4, -11))
 
 # Set up loggers
 logger = Logger()
-logger.setLoggingLevel(player_agent, Logger.Flags.ClosestMob_Hostile.value)
+logger.setLoggingLevel(player_agent, Logger.Flags.ClosestMob_Hostile)
 
 # Start mission
 malmoutils.loadMission(builder)

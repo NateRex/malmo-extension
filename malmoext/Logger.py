@@ -16,18 +16,20 @@ class Logger:
         self.__currentState = Logger.State()    # Representation of the current state
         self.__logFlags = {}                    # A map of agent IDs to the logging flags for each agent
 
-    def setLoggingLevel(self, agent, flags):
+    def setLoggingLevel(self, agent, *flags):
         '''
-        Set the logging level for an agent by providing a bitmask of Logger.Flags. Normal logging
+        Set the logging level for an agent by providing any number of Logger.Flags. Normal logging
         will be applied to all agents where no flags were specified.
         '''
-        self.__logFlags[agent.id] = flags
+        self.__logFlags[agent.id] = Logger.Flags.Normal.value
+        for flag in flags:
+            self.__logFlags[agent.id] |= flag.value
 
-    def __hasLoggingLevel(self, agent, flags):
+    def __hasLoggingLevel(self, agent, flag):
         '''
         Returns true if the given bitmask was set as the logging level for a particular agent.
         '''
-        return (self.__logFlags[agent.id] & flags) != 0
+        return (self.__logFlags[agent.id] & flag.value) != 0
 
     def clear(self):
         '''
@@ -63,8 +65,8 @@ class Logger:
         allAgents = list(Agent.allAgents.values())
         for agent in allAgents:
             # Make sure logging flags have been set for this agent
-            if (self.__logFlags[agent.id] == None):
-                self.__logFlags[agent.id] = Flags.Normal
+            if (agent.id not in self.__logFlags):
+                self.__logFlags[agent.id] = Logger.Flags.Normal.value
 
             # Define agent
             self.__logAgent(agent)
@@ -82,7 +84,7 @@ class Logger:
             inventoryItems = agent.inventory.asList()
             for item in inventoryItems:
                 self.__logItem(item)
-                self.__appendLine("at-{}-{}", item.id, agent.id)
+                self.__appendLine("at-{}-{}".format(item.id, agent.id))
             equippedItem = agent.inventory.equippedItem()
             equippedID = equippedItem.id if equippedItem != None else "None"
             self.__appendLine("equipped_item-{}-{}".format(agent.id, equippedID))
@@ -215,7 +217,7 @@ class Logger:
 
         # Add to log
         self.__appendLine("mobs-{}-{}".format(mob.id, mob.type))
-        isAlive = True if self.__currentState.dead[mob.id] == None else False
+        isAlive = True if mob.id in self.__currentState.dead else False
         self.__logIsAlive(mob, isAlive)
 
         # Update current state
@@ -265,19 +267,19 @@ class Logger:
         mob it is. 
         '''
         if variant == Mobs.All:
-            if not self.__hasLoggingLevel(agent.id, Flags.ClosestMob_Any):
+            if not self.__hasLoggingLevel(agent, Logger.Flags.ClosestMob_Any):
                 return
             prefix = "closest_mob-"
         elif variant == Mobs.Peaceful:
-            if not self.__hasLoggingLevel(agent.id, Flags.ClosestMob_Peaceful):
+            if not self.__hasLoggingLevel(agent, Logger.Flags.ClosestMob_Peaceful):
                 return
             prefix = "closest_peaceful_mob-"
         elif variant == Mobs.Hostile:
-            if not self.__hasLoggingLevel(agent.id, Flags.ClosestMob_Hostile):
+            if not self.__hasLoggingLevel(agent, Logger.Flags.ClosestMob_Hostile):
                 return
             prefix = "closest_hostile_mob-"
         elif variant == Mobs.Food:
-            if not self.__hasLoggingLevel(agent.id, Flags.ClosestItem_Food):
+            if not self.__hasLoggingLevel(agent, Logger.Flags.ClosestItem_Food):
                 return
             prefix = "closest_food_mob-"
         else:
@@ -294,11 +296,11 @@ class Logger:
         item it is.
         '''
         if variant == Items.All:
-            if not self.__hasLoggingLevel(agent.id, Flags.ClosestItem_Any):
+            if not self.__hasLoggingLevel(agent, Logger.Flags.ClosestItem_Any):
                 return
             prefix = "closest_item-"
         elif variant == Items.Food:
-            if not self.__hasLoggingLevel(agent.id, Flags.ClosestItem_Food):
+            if not self.__hasLoggingLevel(agent, Logger.Flags.ClosestItem_Food):
                 return
             prefix = "closest_food_item-"
         else:
