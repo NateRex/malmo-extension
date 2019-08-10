@@ -1,487 +1,565 @@
-# ==============================================================================================
-# This file exposes functionality for logging traces containing both state and action
-# information of a particular agent at regular intervals.
-# ==============================================================================================
-from datetime import datetime
 import os
 import time
-from malmoext.Utils import *
-from malmoext.AgentInventory import *
-
-class LogFlags(Enum):
-    """
-    Enumerated type for setting the flags of the Logger class on which state information to track in the initial and final state.
-    """
-    ClosestMob          = 0x1
-    ClosestPeacefulMob  = 0x2
-    ClosestHostileMob   = 0x4
-    ClosestFoodMob      = 0x8
-    ClosestFoodItem     = 0x10
-    Inventory           = 0x20
+from datetime import datetime
+from malmoext.Utils import Mobs, Items, LogUtils
+from malmoext.Agent import Agent
 
 class Logger:
-    """
-    Purely static class containing functionality for logging traces containing state and action information
-    as a result of actions performed by a companion agent. All of the methods in this class should be called
-    from a corresponding action method, such that the trace output is produced as a direct result of performing
-    an action.
-    """
-    __contents = []                 # The string containing the entire log
-    __currentState = []             # A list of atom strings defining the current environment state as a whole
-    __declaredEntityIds = []        # A list of entity ids for entities that have already been declared in the log
-    __stateFlags = [0] * 5          # A list of flag values for determining what information to write out to the initial and final state for EACH AGENT (maximum of 5)
+    '''
+    Singleton class that produces state and action information for agents operating in a mission.
+    The results are output to a file at the end of the mission. Calls to the logger should only be
+    made via the static class methods.
+    '''
+    def __init__(self):
+        self.__log = []                  # The log contents, split by line
+        self.__currentState = State()    # Representation of the current state
+        self.__logFlags = {}             # A map of agent IDs to the logging flags for each agent
 
-    @staticmethod
-    def clearTrackingFlags():
-        """
-        Clears the flags denoting what state information to track in the initial and final states for all agents.
-        """
-        for i in range(0, len(Logger.__stateFlags)):
-            Logger.__stateFlags[i] = 0
-
-    @staticmethod
-    def addAgentLogging(*agentMaskList):
+    def setLoggingLevel(self, agent, flags):
         '''
-        For each agent that requires additional/verbose logging, list the agent, followed by a mask consisting of LogFlags.
+        Set the logging level for an agent by providing a bitmask of Logger.Flags. Normal logging
+        will be applied to all agents where no flags were specified.
         '''
-        i = 0
-        listLen = len(agentMaskList)
-        while i < listLen:
-            if i + 1 >= listLen:
-                raise Exception("expected LogFlags mask for given agent")
-            mask = agentMaskList[i + 1]
-            if not isinstance(mask, int):
-                raise Exception("expected LogFlags mask for given agent")
-            Logger.__stateFlags[agentMaskList[i].getIndex()] = mask
-            i += 2
+        self.__logFlags[agent.id] = flags
 
-    @staticmethod
-    def isTrackingClosestMob(agent):
-        """
-        Returns true if the Logger is set to track the closest mob of an agent in the initial and final states.
-        """
-        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestMob.value) != 0
+    def __hasLoggingLevel(self, agent, flags):
+        '''
+        Returns true if the given bitmask was set as the logging level for a particular agent.
+        '''
+        return (self.__logFlags[agent.id] & flags) != 0
 
-    @staticmethod
-    def isTrackingClosestPeacefulMob(agent):
-        """
-        Returns true if the Logger is set to track the closest peaceful mob of an agent in the initial and final states.
-        """
-        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestPeacefulMob.value) != 0
+    def clear(self):
+        '''
+        Clear the log of all its contents.
+        '''
+        self.__log = []
 
-    @staticmethod
-    def isTrackingClosestHostileMob(agent):
-        """
-        Returns true if the Logger is set to track the closest hostile mob of an agent in the initial and final states.
-        """
-        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestHostileMob.value) != 0
+    def __appendLine(self, line):
+        '''
+        Add a new statement onto the log.
+        '''
+        self.__log.append(line)
 
-    @staticmethod
-    def isTrackingClosestFoodMob(agent):
-        """
-        Returns true if the Logger is set to track the closest food mob of an agent in the initial and final states.
-        """
-        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestFoodMob.value) != 0
+    def __appendNewline(self):
+        '''
+        Add a blank line onto the log. If the previous line was already a blank line, this method
+        has no effect.
+        '''
+        length = len(self.__log)
+        if length == 0:
+            return
+        if self.__log[length - 1] != "":
+            self.__log.append("")
 
-    @staticmethod
-    def isTrackingClosestFoodItem(agent):
-        """
-        Returns true if the Logger is set to track the closest food item of an agent in the initial and final states.
-        """
-        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.ClosestFoodItem.value) != 0
+    def start(self):
+        '''
+        Log the starting state of the mission. This method should only be called once, after any
+        preliminary settings to the logger are set.
+        '''
+        # Log out a special NoneType entity that we use as a placeholder for things not yet set
+        self.__appendLine("none-None-NoneType")
 
-    @staticmethod
-    def isTrackingInventory(agent):
-        """
-        Returns true if the Logger is set to track the inventory of an agent in the initial and final states.
-        """
-        return (Logger.__stateFlags[agent.getIndex()] & LogFlags.Inventory.value) != 0
+        allAgents = Agent.allAgents
+        for agent in allAgents:
+            # Make sure logging flags have been set for this agent
+            if (self.__logFlags[agent.id] == None):
+                self.__logFlags[agent.id] = Flags.Normal
 
-    @staticmethod
-    def getCurrentState(agents):
-        """
-        Returns a list of string atoms that define the current environment state from all agent perspectives.
-        """
-        # For each agent, update any information we are tracking that could potentially change on each function call
-        for agent in agents:
-            if Logger.isTrackingClosestMob(agent):
-                agent.getClosestMob()
-            if Logger.isTrackingClosestPeacefulMob(agent):
-                agent.getClosestPeacefulMob()
-            if Logger.isTrackingClosestHostileMob(agent):
-                agent.getClosestHostileMob()
-            if Logger.isTrackingClosestFoodMob(agent):
-                agent.getClosestFoodMob()
-            if Logger.isTrackingClosestFoodItem(agent):
-                agent.getClosestFoodItem()
-        return Logger.__currentState
+            # Define agent & create metadata object
+            self.__logAgent(agent)
+            agentMetadata = AgentMetadata()
 
-    @staticmethod
-    def __getTime__():
-        """
-        Internal method for getting a string containing the current time and date.
-        """
-        return datetime.fromtimestamp(time.time()).strftime('%m-%d-%Y %H:%M:%S.%f')
+            # Log where agent is looking (initially None)
+            self.__appendLine("looking_at-{}-None".format(agent.id))
 
+            # Log where agent is at (initially None)
+            self.__appendLine("at-{}-None".format(agent.id))
+            
+            # Agent inventory
+            agent.inventory.sync()
+            agentMetadata.inventory = agent.inventory.asMap()
+            inventoryItems = agent.inventory.asList()
+            for item in inventoryItems:
+                self.__logItem(item)
+                self.__appendLine("at-{}-{}", item.id, agent.id)
+            equippedItem = agent.inventory.equippedItem()
+            equippedID = equippedItem.id if equippedItem != None else "None"
+            self.__appendLine("equipped_item-{}-{}".format(agent.id, equippedID))
 
-    @staticmethod
-    def isEntityDefined(entity):
-        """
-        Returns true if this entity was already previously defined in the log. Returns false otherwise.
-        """
-        if entity.id in Logger.__declaredEntityIds:
-            return True
-        return False
+            # Nearby entities to this agent
+            self.__logEntities(agent.nearbyEntities())
 
-    @staticmethod
-    def __logAt__(entity, landmark):
-        """
-        Logs that an entity is located at a specific landmark (which is another entity in the world).
-        """
-        Logger.__pushStatement__("at-{}-{}".format(entity.id, landmark.id))
+            # Log closest mobs
+            agentMetadata.closestMob[Mobs.All] = agent.closestMob()
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.All])
+            agentMetadata.closestMob[Mobs.Peaceful] = agent.closestMob(Mobs.Peaceful)
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Peaceful], Mobs.Peaceful)
+            agentMetadata.closestMob[Mobs.Hostile] = agent.closestMob(Mobs.Hostile)
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Hostile], Mobs.Hostile)
+            agentMetadata.closestMob[Mobs.Food] = agent.closestMob(Mobs.Hostile)
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Food], Mobs.Food)
 
-        # Fix up current state
-        didChangeCurrentState = False
-        for i in range(0, len(Logger.__currentState)):
-            if Logger.__currentState[i].startswith("at-{}".format(entity.id)):
-                Logger.__currentState[i] = "at-{}-{}".format(entity.id, landmark.id)
-                didChangeCurrentState = True
-                break
-        if not didChangeCurrentState:
-            Logger.__currentState.append("at-{}-{}".format(entity.id, landmark.id))
+            # Log closest items
+            agentMetadata.closestItem[Items.All] = agent.closestItem()
+            self.__logClosestItem(agent, agentMetadata.closestItem[Items.All])
+            agentMetadata.closestItem[Items.Food] = agent.closestItem(Items.Food)
+            self.__logClosestItem(agent, agentMetadata.closestItem[Items.Food], Items.Food)
 
-    @staticmethod
-    def logInitialState(agents):
-        """
-        Given the list of agents for a mission, log the starting state for the environment in the log.
-        """
-        # Log the None entity to define a placeholder for anything not yet set in the trace file (we shove this into the mobs section)
-        # TODO: This should really be some kind of universal thing, and not just a mob (what if we have closest_food_item-None?...)
-        Logger.__pushStatement__("none-None-NoneType")
-        Logger.__currentState.append("none-None-NoneType")
+            # Add agent metadata to the current state
+            self.__currentState.agents[agent.id] = agentMetadata
+        
+        # Log start symbol
+        self.__appendLine("START")
+        self.__appendNewline()
 
-        for agent in agents:
-            agentId = agent.getId()
+    def stop(self):
+        '''
+        Log the final state of the mission. This method should only be called once, after the mission has finished.
+        '''
+        
+        self.__appendNewline()
+        self.__appendLine("END")
 
-            # Log the definition of this agent
-            Logger.__logAgentDefinition__(agent)
+        allAgents = Agent.allAgents
+        allItemsInInventory = {}
+        allItems = self.__currentState.items.values()
+        allMobs = self.__currentState.mobs.values()
 
-            # Log all entities that the agent has identified nearby
-            entities = agent.getNearbyEntities()
-            if entities != None:
-                for entity in entities:
-                    Logger.logEntityDefinition(entity)
-                    
-            # Log starting inventory and equipped item
-            if Logger.isTrackingInventory(agent):
-                agent.inventory.update()
-                inventoryItems = agent.inventory.allItems()
-                for item in inventoryItems:
-                    Logger.logItemDefinition(item)
-                    Logger.__logAt__(item, agent)
-                equippedItem = agent.currentlyEquipped()
-                equippedItemId = "None" if equippedItem == None else equippedItem.id
-                Logger.__pushStatement__("equipped_item-{}-{}".format(agentId, equippedItemId))
-                agent.lastEquippedItem = equippedItemId     # Hacky way of making sure we don't re-log equipping the item after the START symbol
+        # Re-define all mobs
+        for mob in allMobs:
+            self.__logMob(mob, True)
 
-            # Log additional starting data dependent on the Logger flags set (getClosestXXX automatically logs)
-            Logger.__pushStatement__("looking_at-{}-None".format(agentId))
-            Logger.__currentState.append("looking_at-{}-None".format(agentId))
-            Logger.__pushStatement__("at-{}-None".format(agentId))
-            Logger.__currentState.append("at-{}-None".format(agentId))
-            if Logger.isTrackingClosestMob(agent):
-                agent.getClosestMob()
-            if Logger.isTrackingClosestPeacefulMob(agent):
-                agent.getClosestPeacefulMob()
-            if Logger.isTrackingClosestHostileMob(agent):
-                agent.getClosestHostileMob()
-            if Logger.isTrackingClosestFoodMob(agent):
-                agent.getClosestFoodMob()
-            if Logger.isTrackingClosestFoodItem(agent):
-                agent.getClosestFoodItem()
+        # Re-define all items
+        for item in allItems:
+            self.__logItem(item, True)
 
-        Logger.__pushStatement__("START")
-        Logger.__pushNewline__()
+        for agent in allAgents:
+            agentMetadata = self.__currentState.agents[agent.id]
 
-    @staticmethod
-    def logFinalState(agents):
-        """
-        Log the end state for the environment in the log.
-        """
-        Logger.__pushNewline__()
-        Logger.__pushStatement__("END")
+            # Re-define agent
+            self.__logAgent(agent, True)
 
-        # Log the current state (ignore closestXXX information, as we will manually refresh and print out each)
-        for statement in Logger.__currentState:
-            if not statement.startswith("closest_"):
-                Logger.__pushStatement__(statement)
+            # Log where agent is looking (from metadata)
+            self.__appendLine("looking_at-{}-{}".format(agent.id, agentMetadata.lookingAt if agentMetadata.lookingAt != None else "None"))
 
-        # Refresh and log closest entity information (calling getClosestXXX automatically logs)
-        # TODO: It might be better to pull this from the _currentState instead for better accuracy...
-        for agent in agents:
-            agent.resetClosestEntityRecords()
-            if Logger.isTrackingClosestMob(agent):
-                agent.getClosestMob()
-            if Logger.isTrackingClosestPeacefulMob(agent):
-                agent.getClosestPeacefulMob()
-            if Logger.isTrackingClosestHostileMob(agent):
-                agent.getClosestHostileMob()
-            if Logger.isTrackingClosestFoodMob(agent):
-                agent.getClosestFoodMob()
-            if Logger.isTrackingClosestFoodItem(agent):
-                agent.getClosestFoodItem()
+            # Log where the agent is at (from metadata)
+            self.__appendLine("at-{}-{}".format(agent.id, agentMetadata.at if agentMetadata.at != None else "None"))
 
+            # Log agent inventory (from metadata)
+            for item in agentMetadata.inventory.values():
+                allItemsInInventory[item.id] = item
+                self.__appendLine("at-{}-{}".format(item.id, agent.id))
+            equippedItem = agentMetadata.equippedItem
+            equippedId = equippedItem.id if equippedItem != None else "None"
+            self.__appendLine("equipped_item-{}-{}".format(agent.id, equippedId))
 
-    @staticmethod
-    def logClosestMob(agent, mob):
-        """
-        Log the closest mob to the agent given.
-        """
-        agentId = agent.getId()
+            # Log closest mobs (from metadata)
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.All])
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Peaceful], Mobs.Peaceful)
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Hostile], Mobs.Hostile)
+            self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Food], Mobs.Food)
 
-        # Special case, where there is no closest mob
-        if mob == None:
-            if "None" != agent.lastClosestMob:
-                closestLog = "closest_mob-{}-None".format(agentId)
-                Logger.__pushStatement__(closestLog)
-                didModifyCurrentState = False
-                for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                    if Logger.__currentState[i].startswith("closest_mob-{}".format(agentId)):
-                        Logger.__currentState[i] = closestLog
-                        didModifyCurrentState = True
-                        break
-                if not didModifyCurrentState:
-                    Logger.__currentState.append(closestLog)
+            # Log closest items (from metadata)
+            self.__logClosestItem(agent, agentMetadata.closestItem[Items.All])
+            self.__logClosestItem(agent, agentMetadata.closestItem[Items.Food], Items.Food)
+
+        # For any items that were not a part of an agent's inventory, log their location as 'None'
+        for item in allItems:
+            if item.id not in allItemsInInventory:
+                self.__appendLine("at-{}-None".format(item.id))
+
+    def __logIsAlive(self, entity, isAlive):
+        '''
+        Log that the given entity is either alive or dead.
+        '''
+        entityId = entity.id
+        if isAlive:
+            if entityId not in self.__currentState.alive:
+                self.__appendLine("status-{}-alive".format(entityId))
+                self.__currentState.alive.add(entityId)
+                self.__currentState.dead.discard(entityId)
+        else:
+            if entityId not in self.__currentState.dead:
+                self.__appendLine("status-{}-dead".format(entityId))
+                self.__currentState.dead.add(entityId)
+                self.__currentState.dead.discard(entityId)
+
+    def __logAgent(self, agent, force=False):
+        '''
+        Define a new agent in the log. If the agent was previously defined, this method has no
+        effect unless the force argument is set to True.
+        '''
+        if not force and agent.id in self.__currentState.agents:
             return
 
-        if not isMob(mob.type):
+        # Add to log
+        self.__appendLine("agents-{}-{}".format(agent.id, agent.id[:-1]))
+        isAlive = agent.isAlive()
+        self.__logIsAlive(agent, isAlive)
+        
+        # Update current state
+        self.__currentState.agents[agentId] = AgentMetadata(agent)
+        if isAlive:
+            self.__currentState.alive.add(agent.id)
+        else:
+            self.__currentState.dead.add(agent.id)
+
+    def __logMob(self, mob, force=False):
+        '''
+        Define a new mob in the log. If the mob was previously defined, this method has no
+        effect unless the force argument is set to True.
+        '''
+        if not force and mob.id in self.__currentState.mobs.keys():
             return
 
-        # This might be an entity not previously declared in the log. Log its definition if so.
-        Logger.logMobDefinition(mob)
+        # Add to log
+        self.__appendLine("mobs-{}-{}".format(mob.id, mob.type))
+        isAlive = True if self.__currentState.dead[mob.id] == None else False
+        self.__logIsAlive(mob, isAlive)
 
-        if mob.id != agent.lastClosestMob:
-            closestLog = "closest_mob-{}-{}".format(agentId, mob.id)
-            Logger.__pushStatement__(closestLog)
-            didModifyCurrentState = False
-            for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                if Logger.__currentState[i].startswith("closest_mob-{}".format(agentId)):
-                    Logger.__currentState[i] = closestLog
-                    didModifyCurrentState = True
-                    break
-            if not didModifyCurrentState:
-                Logger.__currentState.append(closestLog)
+        # Update current state
+        self.__currentState.mobs[mob.id] = mob
+        if isAlive:
+            self.__currentState.alive.add(mob.id)
+        else:
+            self.__currentState.dead.add(mob.id)
 
-
-    @staticmethod
-    def logClosestPeacefulMob(agent, mob):
-        """
-        Log the closest peaceful entity to the agent given.
-        """
-        agentId = agent.getId()
-
-        # Special case, where there is no closest peaceful mob
-        if mob == None:
-            if "None" != agent.lastClosestPeacefulMob:
-                closestLog = "closest_peaceful_mob-{}-None".format(agentId)
-                Logger.__pushStatement__(closestLog)
-                didModifyCurrentState = False
-                for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                    if Logger.__currentState[i].startswith("closest_peaceful_mob-{}".format(agentId)):
-                        Logger.__currentState[i] = closestLog
-                        didModifyCurrentState = True
-                        break
-                if not didModifyCurrentState:
-                    Logger.__currentState.append(closestLog)
-            return
-
-        if not isPeacefulMob(mob.type):
-            return
-
-        # This might be an entity not previously declared in the log. Log its definition if so.
-        Logger.logMobDefinition(mob)
-
-        if mob.id != agent.lastClosestPeacefulMob:
-            closestLog = "closest_peaceful_mob-{}-{}".format(agentId, mob.id)
-            Logger.__pushStatement__(closestLog)
-            didModifyCurrentState = False
-            for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                if Logger.__currentState[i].startswith("closest_peaceful_mob-{}".format(agentId)):
-                    Logger.__currentState[i] = closestLog
-                    didModifyCurrentState = True
-                    break
-            if not didModifyCurrentState:
-                Logger.__currentState.append(closestLog)
-
-    @staticmethod
-    def logClosestHostileMob(agent, mob):
-        """
-        Log the closest hostile entity to the agent given.
-        """
-        agentId = agent.getId()
-
-        # Special case, where there is no closest hostile mob
-        if mob == None:
-            if "None" != agent.lastClosestHostileMob:
-                closestLog = "closest_hostile_mob-{}-None".format(agentId)
-                Logger.__pushStatement__(closestLog)
-                didModifyCurrentState = False
-                for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                    if Logger.__currentState[i].startswith("closest_hostile_mob-{}".format(agentId)):
-                        Logger.__currentState[i] = closestLog
-                        didModifyCurrentState = True
-                        break
-                if not didModifyCurrentState:
-                    Logger.__currentState.append(closestLog)
-            return
-
-        if not isHostileMob(mob.type):
-            return
-
-        # This might be an entity not previously declared in the log. Log its definition if so.
-        Logger.logMobDefinition(mob)
-
-        if mob.id != agent.lastClosestHostileMob:
-            closestLog = "closest_hostile_mob-{}-{}".format(agentId, mob.id)
-            Logger.__pushStatement__(closestLog)
-            didModifyCurrentState = False
-            for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                if Logger.__currentState[i].startswith("closest_hostile_mob-{}".format(agentId)):
-                    Logger.__currentState[i] = closestLog
-                    didModifyCurrentState = True
-                    break
-            if not didModifyCurrentState:
-                Logger.__currentState.append(closestLog)
-
-    @staticmethod
-    def logClosestFoodMob(agent, mob):
-        """
-        Log the closest food mob to the agent given.
-        """
-        agentId = agent.getId()
-
-        # Special case, where there is no closest food mob
-        if mob == None:
-            if "None" != agent.lastClosestFoodMob:
-                closestLog = "closest_food_mob-{}-None".format(agentId)
-                Logger.__pushStatement__(closestLog)
-                didModifyCurrentState = False
-                for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                    if Logger.__currentState[i].startswith("closest_food_mob-{}".format(agentId)):
-                        Logger.__currentState[i] = closestLog
-                        didModifyCurrentState = True
-                        break
-                if not didModifyCurrentState:
-                    Logger.__currentState.append(closestLog)
-            return
-
-        if not isMob(mob.type):
+    def __logItem(self, item, force=False):
+        '''
+        Define a new item in the log. If the item was previously defined, this method has no
+        effect unless the force argument is set to True.
+        '''
+        if not force and item.id in self.__currentState.items.keys():
             return
         
-        # This might be an entity not previously declared in the log. Log its definition if so.
-        Logger.logMobDefinition(mob)
+        # Add to log
+        self.__appendLine("items-{}-{}".format(item.id, item.type))
+        
+        # Update current state
+        self.__currentState.items[item.id] = item
 
-        if mob.id != agent.lastClosestFoodMob:
-            closestLog = "closest_food_mob-{}-{}".format(agentId, mob.id)
-            Logger.__pushStatement__(closestLog)
-            didModifyCurrentState = False
-            for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                if Logger.__currentState[i].startswith("closest_food_mob-{}".format(agentId)):
-                    Logger.__currentState[i] = closestLog
-                    didModifyCurrentState = True
-                    break
-            if not didModifyCurrentState:
-                Logger.__currentState.append(closestLog)
+    def __logEntity(self, entity, force=False):
+        '''
+        Define a new entity in the log. If the entity was previously defined, this method has no
+        effect unless the force argument is set to True.
+        '''
+        if isinstance(entity, Agent):
+            self.__logAgent(entity, force)
+        elif Mobs.All.isMember(entity.type):
+            self.__logMob(entity, force)
+        elif Items.All.isMember(entity.type):
+            self.__logItem(entity, force)
 
-    @staticmethod
-    def logClosestFoodItem(agent, item):
-        """
-        Log the closest food item to the agent given.
-        """
-        agentId = agent.getId()
+    def __logEntities(self, entities, force=False):
+        '''
+        For each entity in the list provided, define it as a new entity in the log if it has not
+        been already. If the force argument is set to True, define the entity regardless.
+        '''
+        for entity in entities:
+            self.__logEntity(entity, force)
 
-        # Special case, where there is no closest food item
+    def __logClosestMob(self, agent, mob, variant=Mobs.All):
+        '''
+        Log the closest mob to an agent. Optionally specify additional modifiers for what type of
+        mob it is. 
+        '''
+        if variant == Mobs.All:
+            if not self.__hasLoggingLevel(agent.id, Flags.ClosestMob_Any):
+                return
+            prefix = "closest_mob-"
+        elif variant == Mobs.Peaceful:
+            if not self.__hasLoggingLevel(agent.id, Flags.ClosestMob_Peaceful):
+                return
+            prefix = "closest_peaceful_mob-"
+        elif variant == Mobs.Hostile:
+            if not self.__hasLoggingLevel(agent.id, Flags.ClosestMob_Hostile):
+                return
+            prefix = "closest_hostile_mob-"
+        elif variant == Mobs.Food:
+            if not self.__hasLoggingLevel(agent.id, Flags.ClosestItem_Food):
+                return
+            prefix = "closest_food_mob-"
+        else:
+            raise Exception("Closest mob variant must be an enumerated type")
+
+        if mob == None:
+            self.__appendLine("{}{}-None".format(prefix, agent.id))
+        else:
+            self.__appendLine("{}{}-{}".format(prefix, agent.id, mob.id))
+
+    def __logClosestItem(self, agent, item, variant=Items.All):
+        '''
+        Log the closest item to an agent. Optionally specify additional modifiers for what type of
+        item it is.
+        '''
+        if variant == Items.All:
+            if not self.__hasLoggingLevel(agent.id, Flags.ClosestItem_Any):
+                return
+            prefix = "closest_item-"
+        elif variant == Items.Food:
+            if not self.__hasLoggingLevel(agent.id, Flags.ClosestItem_Food):
+                return
+            prefix = "closest_food_item-"
+        else:
+            raise Exception("Closest item variant must be an enumerated type")
+
         if item == None:
-            if "None" != agent.lastClosestFoodItem:
-                closestLog = "closest_food_item-{}-None".format(agentId)
-                Logger.__pushStatement__(closestLog)
-                didModifyCurrentState = False
-                for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                    if Logger.__currentState[i].startswith("closest_food_item-{}".format(agentId)):
-                        Logger.__currentState[i] = closestLog
-                        didModifyCurrentState = True
-                        break
-                if not didModifyCurrentState:
-                    Logger.__currentState.append(closestLog)
-            return
+            self.__appendLine("{}{}-None".format(prefix, agent.id))
+        else:
+            self.__appendLine("{}{}-{}".format(prefix, agent.id, item.id))
 
-        if not isFoodItem(item.type):
-            return
+    def __logLookAt(self, agent, fromEntity, toEntity):
+        '''
+        Log the preconditions, action, and postconditions for an agent looking from a previous entity
+        to a new entity.
+        '''
+        self.__appendNewline()
 
-        # This might be an entity not previously declared in the log. Log its definition if so.
-        Logger.logItemDefinition(item)
-
-        if item.id != agent.lastClosestFoodItem:
-            closestLog = "closest_food_item-{}-{}".format(agentId, item.id)
-            Logger.__pushStatement__(closestLog)
-            didModifyCurrentState = False
-            for i in range(0, len(Logger.__currentState)):  # Fix-up current state
-                if Logger.__currentState[i].startswith("closest_food_item-{}".format(agentId)):
-                    Logger.__currentState[i] = closestLog
-                    didModifyCurrentState = True
-                    break
-            if not didModifyCurrentState:
-                Logger.__currentState.append(closestLog)
-
-    __lastLookAtDidFinish = False   # Keep track of whether or not lookAt has finished to log post-conditions ONCE
-
-    __lastMoveToDidFinish = False   # Keep track of whether or not moveTo has finished to log post-conditions ONCE
-        
-
-    __lastAttack = None     # Keep track of the last entity we attacked to avoid unnecessary repeat logs
-
-    @staticmethod
-    def logAttack(agent, entity, didKill):
-        """
-        Log the preconditions, action, and possible postconditions for the Attack command.
-        """
-        agentId = agent.getId()
-        Logger.__pushNewline__()
-
-        # Preconditions
-        Logger.__pushStatement__("looking_at-{}-{}".format(agentId, entity.id))
-        Logger.__pushStatement__("at-{}-{}".format(agentId, entity.id))
+        # Preconditions - None
 
         # Action
-        Logger.__pushStatement__("!ATTACK-{}-{}".format(agentId, entity.id))
+        self.__appendLine("!LOOKAT-{}-{}-{}".format(agent.id, fromEntity.id, toEntity.id))
 
         # Postconditions
-        if didKill:
-            Logger.logEntityIsAlive(entity, False)
+        self.__appendLine("looking_at-{}-{}".format(agent.id, toEntity.id))
 
-            # Sleep to give time for item to appear in inventory if one was immediately picked up
-            time.sleep(0.5)
-            
-            # If we did immediately pick up an item, log the item definitions as postconditions of the attack, and then fake a call to PickUpItem
-            newItems, _ = agent.inventory.update()
-            if len(newItems) > 0:
-                for item in newItems:
-                    Logger.logItemDefinition(item)
-                    Logger.__pushStatement__("at-{}-None".format(item.id))
-                for item in newItems:
-                    Logger.logPickUpItem(agent, item)
-            # If we did NOT pick up an item, there are probably one or more lying closeby... define any items lying on the ground as post-conditions
+    def __logMoveTo(self, agent, fromEntity, toEntity):
+        '''
+        Log the preconditions, action, and postconditions for an agent moving from a previous entity
+        to a new entity.
+        '''
+        self.__appendNewline()
+
+        # Preconditions
+        self.__appendLine("looking_at-{}-{}".format(agent.id, toEntity.id))
+
+        # Action
+        self.__appendLine("!MOVETO-{}-{}-{}".format(agent.id, fromEntity.id, toEntity.id))
+
+        # Postconditions
+        self.__appendLine("at-{}-{}".format(agent.id, toEntity.id))
+
+    def __logAttack(self, agent, mob, wasKilled, itemsObtained):
+        '''
+        Log the preconditions, action, and postconditions for an agent attacking (and possibly
+        killing) a mob.
+        '''
+        self.__appendNewline()
+
+        # Preconditions
+        self.__appendLine("looking_at-{}-{}".format(agent.id, mob.id))
+        self.__appendLine("at-{}-{}".format(agent.id, mob.id))
+
+        # Action
+        self.__appendLine("!ATTACK-{}-{}".format(agent.id, mob.id))
+
+        # Postconditions
+        if wasKilled:
+            self.__logIsAlive(mob, False)
+            for item in itemsObtained:
+                self.__logItem(item)
+                self.__appendLine("at-{}-{}".format(item.id, agent.id))
+
+    def __logCraft(self, agent, itemCrafted, itemsUsed):
+        '''
+        Log the preconditions, action, and postconditions for an agent having crafted an item.
+        '''
+        self.__appendNewline()
+
+        # Preconditions
+        for item in itemsUsed:
+            self.__appendLine("at-{}-{}".format(item.id, agent.id))
+
+        # Action
+        self.__appendLine("!CRAFT-{}-{}".format(agent.id, itemCrafted.id))
+
+        # Postconditions
+        self.__logItem(itemCrafted)
+        self.__appendLine("at-{}-{}".format(itemCrafted.id, agent.id))
+        for item in itemsUsed:
+            self.__appendLine("at-{}-None".format(item.id))
+
+    def __logEquipItem(self, agent, item):
+        '''
+        Log the preconditions, action, and postconditions of an agent equipping an item from its inventory.
+        '''
+        self.__appendNewline()
+
+        # Preconditions
+        self.__appendLine("at-{}-{}".format(item.id, agent.id))
+
+        # Action
+        self.__appendLine("!EQUIP-{}-{}".format(agent.id, item.id))
+
+        # Postconditions
+        self.__appendLine("equipped_item-{}-{}".format(agent.id, item.id))
+
+    def __logGiveItem(self, fromAgent, item, toAgent):
+        '''
+        Log the preconditions, action, and postconditions of an agent giving an item to another agent.
+        '''
+        self.__appendNewline()
+
+        # Preconditions
+        self.__appendLine("looking_at-{}-{}".format(fromAgent.id, toAgent.id))
+        self.__appendLine("at-{}-{}".format(fromAgent.id, toAgent.id))
+        self.__appendLine("at-{}-{}".format(item.id, fromAgent.id))
+        self.__appendLine("equipped_item-{}-{}".format(fromAgent.id, item.id))
+
+        # Action
+        self.__appendLine("!GIVEITEM-{}-{}-{}".format(fromAgent.id, item.id, toAgent.id))
+
+        # Postconditions
+        self.__appendLine("equipped_item-{}-None".format(fromAgent.id))
+        self.__appendLine("at-{}-{}".format(item.id, toAgent.id))
+
+    def __handleClosestMobReport(self, agent, logReport):
+        '''
+        Handle a ClosestMobReport from an agent.
+        '''
+        if logReport.mob.id != self.__currentState.agents[agent.id].closestMob[logReport.variant].id:
+            self.__logClosestMob(agent, logReport.mob, logReport.variant)
+            self.__currentState.agents[agent.id].closestMob[logReport.variant] = logReport.mob
+
+    def __handleClosestItemReport(self, agent, logReport):
+        '''
+        Handle a ClosestItemReport from an agent.
+        '''
+        if logReport.item.id != self.__currentState.agents[agent.id].closestItem[logReport.variant].id:
+            self.__logClosestItem(agent, logReport.item, logReport.variant)
+            self.__currentState.agents[agent.id].closestItem[logReport.variant] = logReport.item
+
+    def __handleLookAtReport(self, agent, logReport):
+        '''
+        Handle a LookAtReport from an agent.
+        '''
+        if logReport.entity.id != self.__currentState.agents[agent.id].lookingAt.id:
+            self.__logLookAt(agent, self.__currentState.agents[agent.id].lookingAt, logReport.entity)
+            self.__currentState.agents[agent.id].lookingAt = logReport.entity
+
+    def __handleMoveToReport(self, agent, logReport):
+        '''
+        Handle a MoveToReport from an agent.
+        '''
+        if logReport.entity.id != self.__currentState.agents[agent.id].at.id:
+            self.__logMoveTo(agent, self.__currentState.agents[agent.id].at, logReport.entity)
+            self.__currentState.agents[agent.id].at = logReport.entity
+
+    def __handleCraftReport(self, agent, logReport):
+        '''
+        Handle a CraftReport from an agent.
+        '''
+        self.__logCraft(agent, logReport.itemCrafted, logReport.itemsUsed)
+        self.__currentState.agents[agent.id].inventory[logReport.itemCrafted.id] = logReport.itemCrafted
+        for itemUsed in logReport.itemsUsed:
+            self.__currentState.agents[agent.id].inventory.pop(logReport.itemUsed.id, None)
+
+    def __handleAttackReport(self, agent, logReport):
+        '''
+        Handle an AttackReport from an agent.
+        '''
+        self.__logAttack(agent, logReport.mob, logReport.didKill, logReport.itemsObtained)
+        for itemObtained in logReport.itemsObtained:
+            self.__currentState.agents[agent.id].inventory[itemObtained.id] = itemObtained
+
+    def __handleEquipReport(self, agent, logReport):
+        '''
+        Handle an EquipReport from an agent.
+        '''
+        if logReport.item.id != self.__currentState.agents[agent.id].equippedItem.id:
+            self.__logEquipItem(agent, logReport.item)
+            self.__currentState.agents[agent.id].equippedItem = logReport.item
+
+    def __handleGiveItemReport(self, agent, logReport):
+        '''
+        Handle a GiveItemReport from an agent.
+        '''
+        self.__logGiveItem(agent, logReport.item, logReport.agent)
+        self.__currentState.agents[agent.id].equippedItem = None
+        self.__currentState.agents[agent.id].inventory.pop(logReport.item.id, None)
+        self.__currentState.agents[logReport.agent.id].inventory[logReport.item.id] = logReport.item
+
+    def __handleAgentLogReports(self, agent):
+        '''
+        Produce a log for any agent log reports that are not repeats from the last iteration.
+        '''
+        logReports = agent.getAndClearLogReports()
+        for logReport in logReport:
+            logReportType = type(logReport).__name__
+            if logReportType == "ClosestMobReport":
+                self.__handleClosestMobReport(agent, logReport)
+            elif logReportType == "ClosestItemReport":
+                self.__handleClosestItemReport(agent, logReport)
+            elif logReportType == "LookAtReport":
+                self.__handleLookAtReport(agent, logReport)
+            elif logReportType == "MoveToReport":
+                self.__handleMoveToReport(agent, logReport)
+            elif logReportType == "CraftReport":
+                self.__handleCraftReport(agent, logReport)
+            elif logReportType == "AttackReport":
+                self.__handleAttackReport(agent, logReport)
+            elif logReportType == "EquipReport":
+                self.__handleEquipReport(agent, logReport)
+            elif logReportType == "GiveItemReport":
+                self.__handleGiveItemReport(agent, logReport)
             else:
-                nearbyItems = agent.getAllNearbyItems()
-                for item in nearbyItems:
-                    newItem = Item("{}{}".format(item.type, agent.inventory.getId()), item.type)
-                    if not Logger.isEntityDefined(newItem):
-                        AgentInventory.enqueueItem(newItem)    # We will most likely be picking up the item and so we will queue up the id to preserve it
-                        for i in range(0, item.quantity):      # Items from a JSON observation have a stack quantity
-                            Logger.logItemDefinition(newItem)
-                            Logger.__pushStatement__("at-{}-None".format(item.id))
-                            AgentInventory.enqueueItem(newItem)
-                            if i < item.quantity - 1:
-                                newItem = Item("{}{}".format(item.type, agent.inventory.getId()), item.type)
-    
-        Logger.__pushNewline__()
+                raise Exception("Unhandled log report type: {}".format(logReportType))
+
+    def update(self):
+        '''
+        Produce logs for all agents where changes/actions have occurred.
+        '''
+        for agent in Agent.allAgents:
+            self.__handleAgentLogReports(agent)
+
+    def export(self):
+        '''
+        Output the log contents to a file in the 'logs' directory. The file is named with the
+        current timestamp.
+        '''
+        directory = "logs"
+        if not os.path.isdir(directory):
+            os.mkdir(directory)
+
+        filename = datetime.fromtimestamp(time.time()).strftime("%m_%d_%Y_%H_%M_%S") + ".log"
+        filepath = os.path.join(directory, filename)
+        with open(filepath, "w+") as f:
+            f.write("\n".join(self.__log))
+        print("Mission log output has been saved to: " + filepath)
+
+    class State:
+        '''
+        Internal logger representation of any instantaneous state of the mission.
+        '''
+        def __init__(self):
+            self.agents = {}        # A map of previously defined agent IDs to agent metadata
+            self.mobs = {}          # A map of all previously defined mob IDs to mob objects
+            self.items = {}         # A map of all previously defined item IDs to item objects
+            self.alive = set()      # A set of agent and mob IDs that are currently alive
+            self.dead = set()       # A set of agent and mob IDs that are currently dead
+
+    class AgentMetadata:
+        '''
+        Internal logger representation of an Agent at any instantaneous state of the mission.
+        Used as a cache by the logger to determine if log records produced by an agent actually represent
+        a change in state.
+        '''
+        def __init__(self):
+            self.lookingAt = None                                  # The ID of the entity that the agent is looking at
+            self.at = None                                         # The ID of the entity that the agent is at
+            self.equippedItem = None                               # The ID of the item that the agent has equipped
+            self.closestMob = {}                                   # A map of mob types to the closest mob of each type to the agent
+            self.closestItem = {}                                  # A map of item types to the closest item of each type to the agent
+            self.inventory = {}                                    # A map of item IDs to items in the agent's inventory
+
+    class Flags(Enum):
+        '''
+        Enumerated type for specifying additional logging output for each agent.
+        '''
+        Normal              = 0x0
+        ClosestMob_Any      = 0x2
+        ClosestMob_Peaceful = 0x4
+        ClosestMob_Hostile  = 0x8
+        ClosestMob_Food     = 0x10
+        ClosestItem_Any     = 0x20
+        ClosestItem_Food    = 0x40

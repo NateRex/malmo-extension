@@ -218,21 +218,3 @@ def isMissionActive():
         if agent.isMissionActive():
             return True
     return False
-
-def startLogging(*agentMaskList):
-    '''
-    Start the logger. For each agent that requires additional/verbose logging,
-    list the agent, followed by a LogFlags bit mask.
-    '''
-    Logger.addAgentLogging(*agentMaskList)
-    Logger.logInitialState(Agent.agentList)
-
-def finish():
-    '''
-    Call this function once the mission has ended. The final state is logged, and any recorded data is
-    exported to the filesystem. The script ends with a 'Mission Ended' printout to the user.
-    '''
-    Logger.logFinalState(Agent.agentList)
-    Logger.export()
-    Performance.export()
-    print("\nMission Ended")

@@ -1,1171 +1,608 @@
-# ==============================================================================================
-# This file contains wrapper classes and functionality relating to a Malmo agent. This combines
-# several primitive commands into larger commands that can be used to acheive more complex tasks.
-# Logging is also handled automatically for each command that creates a corresponding trace.
-# ==============================================================================================
 import malmoext.MalmoPython as MalmoPython
 import json
 import math
 import time
-from malmoext.Utils import *
-from malmoext.Logger import *
-from malmoext.AgentInventory import *
+import copy
+from enum import Enum
+from collections import namedtuple
+from malmoext.Utils import MathUtils, Mobs, Items, LogUtils, Vector, Entity, numerifyId, STRIKING_DISTANCE, GIVING_DISTANCE
+from malmoext.Inventory import Inventory
 
 class Agent:
-    """
-    Wrapper class for a Malmo agent for executing complex commands with corresponding logging.
-    To access the Malmo AgentHost object, use the 'host' member.
-    """
-    agentList = []  # A list of all agents that have been created
+    '''
+    Wrapper class for a Malmo AgentHost object. Exposes methods corresponding to 'high-level'
+    actions such as looking at or moving to a vectorized position. Any completed actions by this
+    agent automatically trigger logging.
+    '''
+    allAgents = {}  # A map containing all agents that were created, accessible by ID
+    ActionOverride = namedtuple("ActionOverride", "function args")
 
-    # def __init__(self, name, agentType):
-    #     self.host = MalmoPython.AgentHost()     # A reference to a Malmo AgentHost object
-    #     self.agentType = agentType              # The AgentType for this agent
-    #     self.inventory = AgentInventory(self)   # This agent's inventory
-    #     self.performance = None                 # This agent's performance data (not collected unless this agent is manually passed to the Performance class)
-    #     self.id = "{}1".format(name)            # The ID of this agent
-    #     self.actionOverride = None              # An function pointer that, if present, is ran instead of any called actions
-    #     Agent.agentList.append(self)            # Add this agent to the global list of all agents
+    def __init__(self, agentID, agentType):
+        if agentID in Agent.allAgents:
+            raise Exception("Two agents can not have the same ID")
 
-    #     # Recorded information for previous state/action observations used for checking state changes and logging
-    #     self.lastWorldState = None
-    #     self.lastStartedLookingAt = ""
-    #     self.lastFinishedLookingAt = "None"
-    #     self.lastStartedMovingTo = ""
-    #     self.lastFinishedMovingTo = "None"
-    #     self.lastClosestMob = ""
-    #     self.lastClosestPeacefulMob = ""
-    #     self.lastClosestHostileMob = ""
-    #     self.lastClosestFoodMob = ""
-    #     self.lastClosestFoodItem = ""
-    #     self.lastEquippedItem = "None"
-    #     self.lastItemAmount = 0
+        self.__host = MalmoPython.AgentHost()   # Reference to wrapped Malmo AgentHost
+        self.__json = None                      # Cache of the last obtained JSON representation of this Agent from Malmo
+        self.__actionOverride = None            # Possible action override of whatever action was called
+        self.__logReports = []                  # A list of log reports to be read by the Logger next iteration
+        self.id = agentID                       # The ID of this agent
+        self.type = agentType                   # The AgentType of this agent
+        self.inventory = Inventory(self)        # Reference to this agent's inventory
 
-    #     self.metadata = Metadata()
+    def isMissionActive(self):
+        '''
+        Returns true if the mission involving this agent is still running.
+        '''
+        return self.__host.peekWorldState().is_mission_running
 
-    def resetClosestEntityRecords(self):
-        """
-        Resets the information regarding the most recent entities found nearby.
-        """
-        self.lastClosestMob = ""
-        self.lastClosestPeacefulMob = ""
-        self.lastClosestHostileMob = ""
-        self.lastClosestFoodMob = ""
-        self.lastClosestFoodItem = ""
+    def toJSON(self):
+        '''
+        Returns the JSON representation of this agent output by Malmo.
+        '''
+        malmoJSON = self.__host.getWorldState()
+        if len(malmoJSON.observations) > 0:
+            self.__json = json.loads(malmoJSON.observations[-1].text)
+        return self.__json
 
-    # def isMissionActive(self):
-    #     """
-    #     Returns true if this agent's mission is still running.
-    #     """
-    #     return self.host.peekWorldState().is_mission_running
+    def getAndClearLogReports(self):
+        '''
+        THIS METHOD SHOULD ONLY BE USED INTERNALLY BY THE LOGGER. Returns the list of actions that
+        need logging since last iteration.
+        '''
+        result = copy.deepcopy(self.__log)
+        self.__log.clear()
+        return result
 
-    # def getObservationJson(self):
-    #     """
-    #     Returns the entire world state containing the most recent observations as a JSON object.
-    #     """
-    #     agentState = self.host.getWorldState()
-    #     if len(agentState.observations) > 0:
-    #         self.lastWorldState = json.loads(agentState.observations[-1].text)
-    #     return self.lastWorldState
+    def isAlive(self):
+        '''
+        Returns true if this agent is alive.
+        '''
+        return self.toJSON()["IsAlive"]
 
-    def getBlockGrid(self):
-        """
-        Returns a grid of block types surrounding this agent as a one-dimensional array. Returns None on error.
-        """
-        stateJson = self.getObservationJson()
-        if stateJson != None:
-            return stateJson.get(u'blockgrid', 0)
-        else:
-            return None
+    def __position(self):
+        '''
+        Returns the (x,y,z) position of this agent.
+        '''
+        agentJSON = self.toJSON()
+        return Vector(agentJSON["XPos"], agentJSON["YPos"] + 1, agentJSON["ZPos"])
 
-    # def isAlive(self):
-    #     '''
-    #     Returns true if this agent is currently alive, false otherwise.
-    #     '''
-    #     stateJson = self.getObservationJson()
-    #     return stateJson["IsAlive"]
-
-    def getIndex(self):
-        """
-        Return the index of this agent in the global list of agents.
-        """
-        return Agent.agentList.index(self)
-
-    def getId(self):
-        """
-        Returns the unique identifier for this agent. Returns none if unsuccessful.
-        """
-        return self.id
-
-    def getPosition(self):
-        """
-        Returns the Vector position of this agent.
-        If no observations have occurred, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return Vector(agentState["XPos"], agentState["YPos"] + 1, agentState["ZPos"])   # Agent's head is above the agent's location
-
-    def getDamageDealt(self):
-        """
-        Returns the amount of damage this agent has dealt out to other entities.
-        If no observations have occurred, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["DamageDealt"]
-
-    def getMobsKilled(self):
-        """
+    def __mobsKilled(self):
+        '''
         Returns the number of mobs this agent has killed.
-        If no observations have occurred, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["MobsKilled"]
+        '''
+        return self.toJSON()["MobsKilled"]
 
-    def getPlayersKilled(self):
-        """
-        Returns the number of players this agent has killed.
-        If no observations have occured, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["PlayersKilled"]
+    def __startWalking(self, speed):
+        '''
+        Start walking forwards or backwards. Accepts speed of [-1, 1].
+        '''
+        self.__host.sendCommand("move {}".format(speed))
 
-    def getTimeAlive(self):
-        """
-        Returns the time the agent has been alive for
-        If no observations have occured, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["TimeAlive"]
+    def __stopWalking(self):
+        '''
+        Stop walking.
+        '''
+        self.__host.sendCommand("move 0")
 
-    def getScore(self):
-        """
-        Returns the score of the agent.
-        If no observations have occured, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["Score"]
+    def __startChangingPitch(self, speed):
+        '''
+        Start moving the agent's POV up or down. Accepts speeds of [-1, 1].
+        '''
+        self.__host.sendCommand("pitch {}".format(speed))
 
-    def getXP(self):
-        """
-        Returns the xp of the agent.
-        If no observations have occured, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["XP"]
+    def __startChangingYaw(self, speed):
+        '''
+        Start moving the agent's POV left or right. Accepts speeds of [-1, 1].
+        '''
+        self.__host.sendCommand("turn {}".format(speed))
 
-    def getDistanceTravelled(self):
-        """
-        Returns the distance travelled by the agent.
-        If no observations have occured, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["DistanceTravelled"]
+    def __stopTurning(self):
+        '''
+        Stop moving the agent's POV in all directions.
+        '''
+        self.__host.sendCommand("pitch 0")
+        self.__host.sendCommand("turn 0")
 
-    def getHealth(self):
-        """
-        Returns the current health of the agent.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["Life"]
+    def __startAttacking(self):
+        '''
+        Causes the agent to begin attacking continuously.
+        '''
+        self.__host.sendCommand("attack 1")
 
-    def getHunger(self):
-        """
-        Returns the current hunger of the agent.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["Food"]
+    def __stopAttacking(self):
+        '''
+        Causes the agent to stop attacking.
+        '''
+        self.__host.sendCommand("attack 0")
 
-    def getInventoryJson(self):
-        """
-        Returns an array of JSON inventory items that this agent is currently carrying.
-        If no observations have occurred, returns None.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return None
-        return agentState["inventory"]
+    def __throwItem(self):
+        '''
+        Causes the agent to throw the currently held item.
+        '''
+        self.__host.sendCommand("discardCurrentItem")
 
-    def getCurrentHotbarIndex(self):
-        """
-        Returns the hotbar index (0-based) that this agent currently has selected.
-        If unable to determine the currently used hotbar index, returns -1.
-        """
-        agentState = self.getObservationJson()
-        if agentState == None:
-            return -1
-        return agentState["currentItemIndex"]
+    def __checkPreconditions(self, *preconditionResults):
+        '''
+        Returns true if all of the given precondition boolean results are met, false otherwise.
+        '''
+        # Return hardcoded true if caller is currently in action override mode (avoids infinite loop)
+        if self.__actionOverride != None:
+            return True
 
-    def __getNextAvailableHotbarIndex__(self):
-        """
-        Internal method that returns the next hotbar index (0-based) that is empty.
-        If there is no such slot available, returns -1.
-        """
-        inventory = self.getInventoryJson()
-        if inventory == None:
-            return -1
-
-        # Record all used hotbar index
-        usedSlots = []
-        for i in range(0, len(inventory)):
-            currentItem = inventory[i]
-            if currentItem["index"] < 9:
-                usedSlots.append(currentItem["index"])
-
-        # Now find first hotbar index not in use
-        for i in range(0, 9):
-            if not i in usedSlots:
-                return i
-        return -1
-
-    def __locationOfItemInInventory__(self, item):
-        """
-        Internal method that returns the inventory index of the specified item in this agent's inventory.
-        Returns -1 if the agent does not carry that item.
-        """
-        inventory = self.getInventoryJson()
-        if inventory == None:
-            return -1
-        
-        for i in range(0, len(inventory)):
-            currentItem = inventory[i]
-            if currentItem["type"] == item.value:
-                return currentItem["index"] 
-        return -1
-
-    def __startMoving__(self, speed):
-        """
-        Start moving backwards or forwards at a specific speed. Accepted values range from -1 to 1.
-        """
-        self.host.sendCommand("move {}".format(speed))
-
-    def stopMoving(self):
-        """
-        Stop moving forwards/backwards.
-        """
-        self.host.sendCommand("move 0")
-
-    def __startStrafing__(self, speed):
-        """
-        Start moving left or right continuously at a specific speed. Accepted values range from -1 to 1.
-        """
-        self.host.sendCommand("strafe {}".format(speed))
-
-    def __stopStrafing__(self, speed):
-        """
-        Stop moving left/right.
-        """
-        self.host.sendCommand("strafe 0")
-
-    def __startChangingPitch__(self, speed):
-        """
-        Start tilting the agent's head up or down continuously at a specific speed. Accepted values range from -1 to 1.
-        """
-        self.host.sendCommand("pitch {}".format(speed))
-
-    def __stopChangingPitch__(self):
-        """
-        Stop tilting the agent's head up/down.
-        """
-        self.host.sendCommand("pitch 0")
-
-    def __startChangingYaw__(self, speed):
-        """
-        Start turning continuously to the left or right at a specific speed. Accepted values range from -1 to 1.
-        """
-        self.host.sendCommand("turn {}".format(speed))
-
-    def __stopChangingYaw__(self):
-        """
-        Stop turning left/right.
-        """
-        self.host.sendCommand("turn 0")
-    
-    def stopTurning(self):
-        """
-        Stop turning left/right and up/down.
-        """
-        self.__stopChangingYaw__()
-        self.__stopChangingPitch__()
-
-    def __startJumping__(self):
-        """
-        Start jumping continuously.
-        """
-        self.host.sendCommand("jump 1")
-
-    def __stopJumping__(self):
-        """
-        Stop jumping.
-        """
-        self.host.sendCommand("jump 0")
-
-    def __startCrouching__(self):
-        """
-        Start crouching continuously.
-        """
-        self.host.sendCommand("crouch 1")
-
-    def __stopCrouching__(self):
-        """
-        Stop crouching.
-        """
-        self.host.sendCommand("crouch 0")
-
-    def __startAttacking__(self):
-        """
-        Start attacking continuously.
-        """
-        self.host.sendCommand("attack 1")
-
-    def stopAttacking(self):
-        """
-        Stop attacking.
-        """
-        self.host.sendCommand("attack 0")
-
-    def __startUsingItem__(self):
-        """
-        Begin continuously using the item in the currently selected hotbar slot.
-        """
-        self.host.sendCommand("use 1")
-
-    def __stopUsingItem__(self):
-        """
-        Stop using the item in the currently selected hotbar slot.
-        """
-        self.host.sendCommand("use 0")
-
-    def __throwItem__(self):
-        """
-        Throws item currently equipped.
-        """
-        self.host.sendCommand("discardCurrentItem")
-
-    def stopAllMovement(self):
-        """
-        Stops any form of movement by this agent, including yaw/pitch turning and walking.
-        """
-        self.stopTurning()
-        self.stopMoving()
-        self.stopAttacking()
-
-    def noAction(self):
-        """
-        An action to perform if there is nothing left to do for the current environment.
-        Should usually be called upon at the bottom of the mission loop.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.noAction:
-            return self.actionOverride.function(*self.actionOverride.args)
-
-        self.stopAllMovement()
+        for result in preconditionResults:
+            if not result:
+                return False
         return True
 
-    def getNearbyEntities(self):
-        """
-        Returns a list of named EntityInfo tuples of all entities within a 20x20 area around this agent.
-        Returns None on error.
-        """
-        worldState = self.getObservationJson()
-        if worldState == None:
-            return None
-        entities = [Entity("{}{}".format(k["name"], numerifyId(k["id"]).replace("-", "")), k["name"], Vector(k["x"], k["y"], k["z"]), k.get("quantity")) for k in worldState["nearby_entities"]]
-        return entities
+    def __shouldPerformActionOverride(self, callerAction):
+        '''
+        Returns true if there exists an action override that should be performed instead of
+        the caller. Returns false otherwise.
+        '''
+        if self.__actionOverride != None and self.__actionOverride.function != callerAction:
+            return True
+        return False
 
-    def getNearbyEntityById(self, entityId):
-        """
-        Returns a named EntityInfo tuple describing an entity near this agent, using its id. If an entity with that id is not found, returns None.
-        """
-        entities = self.getNearbyEntities()
-        for entity in entities:
-            if entity.id == entityId:
-                return entity
-        return None
+    def stopMoving(self):
+        '''
+        Stop all movement of this agent.
+        '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.stopMoving):
+            return self.__actionOverride.function(*self.__actionOverride.args)
 
-    def getClosestMob(self):
-        """
-        Returns a named EntityInfo tuple of the nearest mob within a 20x20 area of this agent.
-        Returns none if no such mob exists.
-        """
-        agentPos = self.getPosition()
-        entities = self.getNearbyEntities()
-        if agentPos == None or entities == None:
-            return None
-        nearestDistance = 1000000
-        nearestEntity = None
-        for entity in entities:   # First entity is always the agent itself
-            if isMob(entity.type):
-                entityPos = entity.position
-                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
-                if distanceToEntity < nearestDistance:
-                    nearestDistance = distanceToEntity
-                    nearestEntity = entity
-        if nearestEntity == None:
-            Logger.logClosestMob(self, None)
-            self.lastClosestMob = "None"
-            return None
-        Logger.logMobDefinition(nearestEntity)    # In case we never saw this entity before
-        Logger.logClosestMob(self, nearestEntity)
-        self.lastClosestMob = nearestEntity.id
-        return nearestEntity
+        self.__stopTurning()
+        self.__stopMoving()
+        self.__stopAttacking()
 
-    def getClosestPeacefulMob(self):
-        """
-        Returns a named EntityInfo tuple of the nearest peaceful mob within a 20x20 area of this agent.
-        Returns None if no such mob exists.
-        """
-        agentPos = self.getPosition()
-        entities = self.getNearbyEntities()
-        if agentPos == None or entities == None:
-            return None
-        nearestDistance = 1000000
-        nearestEntity = None
-        for entity in entities:
-            if isPeacefulMob(entity.type):
-                entityPos = entity.position
-                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
-                if distanceToEntity < nearestDistance:
-                    nearestDistance = distanceToEntity
-                    nearestEntity = entity
-        if nearestEntity == None:
-            Logger.logClosestPeacefulMob(self, None)
-            self.lastClosestPeacefulMob = "None"
-            return None
-        Logger.logMobDefinition(nearestEntity)    # In case we never saw this entity before
-        Logger.logClosestPeacefulMob(self, nearestEntity)
-        self.lastClosestPeacefulMob = nearestEntity.id
-        return nearestEntity
+    def nearbyEntities(self):
+        '''
+        Returns a list of all nearby entities to this agent.
+        '''
+        agentJSON = self.toJSON()
+        return [Entity("{}{}".format(k["name"], numerifyId(k["id"]).replace("-", "")), k["name"], Vector(k["x"], k["y"], k["z"]), k.get("quantity")) for k in agentJSON["nearby_entities"]]
 
-    def getClosestHostileMob(self):
-        """
-        Returns a named EntityInfo tuple of the nearest harmful mob within a 20x20 area of this agent.
-        Returns None if no such mob exists.
-        """
-        agentPos = self.getPosition()
-        entities = self.getNearbyEntities()
-        if agentPos == None or entities == None:
-            return None
-        nearestDistance = 1000000
-        nearestEntity = None
-        for entity in entities:
-            if isHostileMob(entity.type):
-                entityPos = entity.position
-                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
-                if distanceToEntity < nearestDistance:
-                    nearestDistance = distanceToEntity
-                    nearestEntity = entity
-        if nearestEntity == None:
-            Logger.logClosestHostileMob(self, None)
-            self.lastClosestHostileMob = "None"
-            return None
-        Logger.logMobDefinition(nearestEntity)    # In case we never saw this entity before
-        Logger.logClosestHostileMob(self, nearestEntity)
-        self.lastClosestHostileMob = nearestEntity.id
-        return nearestEntity
+    def closestMob(self, variant=Mobs.All):
+        '''
+        Get the closest mob to this agent. Optionally specify additional modifiers for filtering mobs by type.
+        Returns None if no mob was found nearby to this agent.
+        '''
+        aPos = self.__position()
+        nearbyEntities = self.nearbyEntities()
+        if variant == Mobs.All:
+            comparator = Mobs.All.isMember
+        elif variant == Mobs.Peaceful:
+            comparator = Mobs.Peaceful.isMember
+        elif variant == Mobs.Hostile:
+            comparator = Mobs.Hostile.isMember
+        elif variant == Mobs.Food:
+            comparator = Mobs.Food.isMember
+        else:
+            raise Exception("Closest mob variant must be an enumerated type")
 
-    def getClosestFoodMob(self):
-        """
-        Returns a named EntityInfo tuple of the nearest food mob within a 20x20 area of this agent.
-        Returns None if no such mob exists.
-        """
-        agentPos = self.getPosition()
-        entities = self.getNearbyEntities()
-        if agentPos == None or entities == None:
-            return None
-        nearestDistance = 1000000
-        nearestEntity = None
-        for entity in entities:
-            if isFoodMob(entity.type):
-                entityPos = entity.position
-                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
-                if distanceToEntity < nearestDistance:
-                    nearestDistance = distanceToEntity
-                    nearestEntity = entity
-        if nearestEntity == None:
-            Logger.logClosestFoodMob(self, None)
-            self.lastClosestFoodMob = "None"
-            return None
-        Logger.logMobDefinition(nearestEntity)    # In case we never saw this entity before
-        Logger.logClosestFoodMob(self, nearestEntity)
-        self.lastClosestFoodMob = nearestEntity.id
-        return nearestEntity
+        closestDistance = 1000000.0
+        closestMob = None
+        for entity in nearbyEntities:
+            if comparator(entity.type):
+                ePos = entity.position
+                distance = MathUtils.distanceBetweenPoints(aPos, ePos)
+                if distance < closestDistance:
+                    closestDistance = distance
+                    closestMob = entity
+        self.__logReports.append(LogUtils.ClosestMobReport(variant, closestMob))
+        return closestMob
 
-    def getClosestFoodItem(self):
-        """
-        Returns a named EntityInfo tuple of the nearest food item within a 20x20 area of this agent.
-        Returns None if no such item exists.
-        """
-        agentPos = self.getPosition()
-        entities = self.getNearbyEntities()
-        if agentPos == None or entities == None:
-            return None
-        nearestDistance = 1000000
-        nearestEntity = None
-        for entity in entities:
-            if isFoodItem(entity.type):
-                entityPos = entity.position
-                distanceToEntity = MathUtils.distanceBetweenPoints(agentPos, entityPos)
-                if distanceToEntity < nearestDistance:
-                    nearestDistance = distanceToEntity
-                    nearestEntity = entity
-        if nearestEntity == None:
-            #Logger.logClosestFoodItem(self, None)
-            self.lastClosestFoodItem = "None"
-            return None
+    def closestItem(self, variant=Items.All):
+        '''
+        Get the closest item on the ground to this agent. Optionally specify additional modifiers for filtering
+        items by type. Returns None if no item was found nearby to this agent.
+        '''
+        aPos = self.__position()
+        nearbyEntities = self.nearbyEntities()
+        if variant == Items.All:
+            comparator = Items.All.isMember
+        elif variant == Items.Food:
+            comparator = Items.Food.isMember
+        else:
+            raise Exception("Closest item variant must be an enumerated type")
 
-        #Logger.logClosestFoodItem(self, nearestEntity)
-        self.lastClosestFoodItem = nearestEntity.id
-        return nearestEntity
+        closestDistance = 1000000.0
+        closestItem = None
+        for entity in nearbyEntities:
+            if comparator(entity.type):
+                ePos = entity.position
+                distance = MathUtils.distanceBetweenPoints(aPos, ePos)
+                if distance < closestDistance:
+                    closestDistance = distance
+                    closestItem = entity
+        self.__logReports.append(LogUtils.ClosestItemReport(variant, closestItem))
+        return closestItem
 
-    def getAllNearbyItems(self):
-        """
-        Returns a list of items that are lying on the ground within a 20x20 area of this agent.
-        """
-        entities = self.getNearbyEntities()
-        itemList = []
-        if entities == None:
-            return itemList
-        for entity in entities:
-            if isItem(entity.type):
-                itemList.append(entity)
-        return itemList
+    def __calculateTargetPitchRate(self, targetPos):
+        '''
+        Calculate the rate at which to move the agent's POV up/down in order to face an (x,y,z) position.
+        '''
+        aJSON = self.toJSON()
+        aPos = self.__position()
+        currAngle = aJSON["Pitch"]
+        vec = MathUtils.vectorFromPoints(aPos, targetPos)
+        vec = MathUtils.normalizeVector(vec)
+        trimmedVec = Vector(vec.x, 0, vec.z)
 
-    def getClosestBlockByType(self, blockType):
-        """
-        Returns the nearest block of a given type as an entity. If no such block is found, returns None.
-        """
-        currentPos = self.getPosition()
-        grid = self.getBlockGrid()
-        if grid == None or currentPos == None:
-            return None
+        # Convert target position to a target angle (-90 to 90 degrees)
+        if MathUtils.isZeroVector(trimmedVec):
+            return 0.0
+        cos = MathUtils.dotProduct(vec, trimmedVec) / (MathUtils.vectorMagnitude(vec) * MathUtils.vectorMagnitude(trimmedVec))
+        if cos > 1:
+            cos = 1
+        elif cos < -1:
+            cos = -1
+        targetAngle = math.acos(cos)
+        if vec.y > 0:
+            targetAngle = -targetAngle
+        targetAngle = math.degrees(targetAngle)
 
-        # Find the block type in the observation grid of nearby blocks
-        index = 0
-        for y in range(0, GRID_OBSERVATION_Y_LEN):
-            for z in range(0, GRID_OBSERVATION_Z_LEN):
-                for x in range(0, GRID_OBSERVATION_X_LEN):
-                    if grid[index] == blockType.value:
-                        xDiff = x - GRID_OBSERVATION_X_HALF_LEN
-                        yDiff = y - GRID_OBSERVATION_Y_HALF_LEN
-                        zDiff = z - GRID_OBSERVATION_Z_HALF_LEN
-                        return Entity("someBlock...", blockType.value, Vector(currentPos.x + xDiff, currentPos.y + yDiff, currentPos.z + zDiff), 1)
-                    index += 1
-        return None
+        # Get difference between current and target angle
+        if currAngle <= targetAngle:
+            angleDiff = targetAngle - currAngle
+        else:
+            angleDiff = currAngle - targetAngle
 
-    def getBlockTypeAtLocation(self, loc):
-        """
-        Get the block type at the position given. This position must be within observable distance to this agent. Returns None on error.
-        """
-        currentPos = self.getPosition()
-        grid = self.getBlockGrid()
-        if grid == None or currentPos == None:
-            return None
+        # Get the turning direction
+        if currAngle > targetAngle:
+            turnDirection = -1
+        else:
+            turnDirection = 1
 
-        # Convert the x, y, z position to a location in the grid
-        xIdx = GRID_OBSERVATION_X_HALF_LEN + (loc.x - currentPos.x)
-        yIdx = GRID_OBSERVATION_Y_HALF_LEN + (loc.y - currentPos.y)
-        zIdx = GRID_OBSERVATION_Z_HALF_LEN + (loc.z - currentPos.z)
-        idx = int(yIdx * GRID_OBSERVATION_Z_LEN * GRID_OBSERVATION_X_LEN + zIdx * GRID_OBSERVATION_X_LEN + xIdx)
+        # Calculate the turning rate
+        if angleDiff > 10:
+            return 1.0 * turnDirection
+        elif angleDiff > 5:
+            return .25 * turnDirection
+        elif angleDiff > 2:
+            return 0.5 * turnDirection
+        else:
+            return MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * turnDirection
 
-        if idx < 0 or idx >= len(grid):
-            return None
+    def __calculateTargetYawRate(self, targetPos):
+        '''
+        Calculate the rate at which to move the agent's POV left/right in order to face an (x,y,z) position.
+        '''
+        aJSON = self.toJSON()
+        aPos = self.__position()
+        currAngle = aJSON["Yaw"] if aJSON["Yaw"] >= 0 else 360.0 - abs(aJSON["Yaw"])
+        vec = MathUtils.vectorFromPoints(aPos, targetPos)
+        vec = MathUtils.normalizeVector(vec)
 
-        # We want to return the actual enum.. not just the string
-        return stringToBlockEnum(grid[idx])
-
-    def __getYawRateToFacePosition__(self, targetPosition):
-        """
-        Obtain a rate in which to turn along the yaw angle to face a given target position.
-        """
-        worldState = self.getObservationJson()
-        agentPos = self.getPosition()
-        if worldState == None or agentPos == None:
-            return False    
-        currentAngle = worldState["Yaw"] if worldState["Yaw"] >= 0 else 360.0 - abs(worldState["Yaw"])
-        vector = MathUtils.vectorFromPoints(agentPos, targetPosition)
-        vector = MathUtils.normalizeVector(vector)
-
-        # Get the angle that we wish to face
-        targetAngle = None
-        if MathUtils.valuesAreEqual(vector.x, 0, 1.0e-14): # Avoid dividing by 0
-            if vector.z >= 0:
+        # Convert target position to a target angle (360 degrees)
+        if MathUtils.valuesAreEqual(vec.x, 0):
+            if vec.z >= 0:
                 targetAngle = -MathUtils.PI_OVER_TWO
             else:
                 targetAngle = MathUtils.PI_OVER_TWO
         else:
-            targetAngle = math.atan(vector.z / vector.x)
-    
-        # Adjust angle based on quadrant of vector
-        if vector.x <= 0:   # Quadrant 1 or 2
-            targetAngle = MathUtils.PI_OVER_TWO + targetAngle
-        elif vector.x > 0:  # Quadrant 3 or 4
-            targetAngle = MathUtils.THREE_PI_OVER_TWO + targetAngle
+            targetAngle = math.atan(vec.z / vec.x)
 
+        # Modify target angle based on which quadrant the vector lies in
+        if vec.x <= 0:   # quadrant 1 or 2
+            targetAngle = MathUtils.PI_OVER_TWO + targetAngle
+        else:
+            targetAngle = MathUtils.THREE_PI_OVER_TWO + targetAngle
         targetAngle = math.degrees(targetAngle)
-        if MathUtils.valuesAreEqual(targetAngle, 360.0, 1.0e-14):
+        if MathUtils.valuesAreEqual(targetAngle, 360.0):
             targetAngle = 0
 
-        # Get difference between the two angles
-        diff = None
-        if currentAngle <= targetAngle:
-            diff = min(targetAngle - currentAngle, 360 - targetAngle + currentAngle)
+        # Get difference between current and target angle
+        if currAngle <= targetAngle:
+            angleDiff = min(targetAngle - currAngle, 360 - targetAngle + currAngle)
         else:
-            diff = min(currentAngle - targetAngle, 360 - currentAngle + targetAngle)
-        
-        # Get the turning direction
-        multiplier = 1
-        if currentAngle > targetAngle and currentAngle - targetAngle < 180:
-            multiplier = -1
-        elif targetAngle > currentAngle and targetAngle - currentAngle > 180:
-            multiplier = -1
-
-        # Get the turning rate
-        rate = 0
-        if diff > 10:
-            rate = 1.0 * multiplier
-        elif diff > 5:
-            rate = .25 * multiplier
-        elif diff > 2:
-            rate = .05 * multiplier
-        else:
-            rate = MathUtils.affineTransformation(diff, 0.0, 180.0, 0, 1.0) * multiplier
-
-        return rate
-
-    def __getPitchRateToFacePosition__(self, targetPosition):
-        """
-        Obtain a rate in which to turn along the pitch angle to face the given target position.
-        """
-        worldState = self.getObservationJson()
-        agentPos = self.getPosition()
-        if worldState == None or agentPos == None:
-            return False  
-        currentAngle = worldState["Pitch"]
-        vectorWithHeight = MathUtils.vectorFromPoints(agentPos, targetPosition)
-        vectorWithHeight = MathUtils.normalizeVector(vectorWithHeight)
-        vectorWithoutHeight = Vector(vectorWithHeight.x, 0, vectorWithHeight.z)
-
-        # Get the angle that we wish to change the pitch to (account for range -90 to 90)
-        if MathUtils.isZeroVector(vectorWithHeight) or MathUtils.isZeroVector(vectorWithoutHeight): # Avoid dividing by 0
-            return False
-        cosValue = MathUtils.dotProduct(vectorWithHeight, vectorWithoutHeight) / (MathUtils.vectorMagnitude(vectorWithHeight) * MathUtils.vectorMagnitude(vectorWithoutHeight))
-        if cosValue > 1:
-            cosValue = 1
-        elif cosValue < -1:
-            cosValue = -1
-        targetAngle = math.acos(cosValue)
-        if vectorWithHeight.y > 0:
-            targetAngle = -targetAngle
-
-        targetAngle = math.degrees(targetAngle)
-
-        # Get difference between two angles
-        diff = None
-        if currentAngle <= targetAngle:
-            diff = targetAngle - currentAngle
-        else:
-            diff = currentAngle - targetAngle
+            angleDiff = min(currAngle - targetAngle, 360 - currAngle + targetAngle)
 
         # Get the turning direction
-        multiplier = 1
-        if currentAngle > targetAngle:
-            multiplier = -1
-
-        # Get the turning rate
-        rate = 0
-        if diff > 10:
-            rate = 1.0 * multiplier
-        elif diff > 5:
-            rate = .25 * multiplier
-        elif diff > 2:
-            rate = .05 * multiplier
+        if currAngle > targetAngle and currAngle - targetAngle < 180:
+            turnDirection = -1
+        elif targetAngle > currAngle and targetAngle - currAngle > 180:
+            turnDirection = -1
         else:
-            rate = MathUtils.affineTransformation(diff, 0.0, 180.0, 0, 1.0) * multiplier
-        return rate
+            turnDirection = 1
 
-    def __isLookingAt__(self, targetPosition):
-        """
-        Returns true if this agent is currently looking in the proximity of the target position.
-        """
-        # Our tolerance depends on how close we are to the object
-        agentPos = self.getPosition()
-        distanceFromTarget = MathUtils.distanceBetweenPoints(agentPos, targetPosition)
-        yawRate = self.__getYawRateToFacePosition__(targetPosition)
-        pitchRate = self.__getPitchRateToFacePosition__(targetPosition)
-        if distanceFromTarget > 7:
-            if abs(yawRate) >= .25 or abs(pitchRate) >= .25:
-                return False
+        # Calculate the turning rate
+        if angleDiff > 10:
+            return 1.0 * turnDirection
+        elif angleDiff > 5:
+            return .25 * turnDirection
+        elif angleDiff > 2:
+            return 0.5 * turnDirection
         else:
-            if abs(yawRate) >= .8 or abs(pitchRate) >= .8:
-                return False
-        return True
+            return MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * turnDirection
 
-    def __lookAtPosition__(self, targetPosition):
-        """
-        Begin continuously turning/looking to face a Vector position.
-        Returns true if the agent is currently looking at the target. Returns false otherwise.
-        """
-        # Our tolerance depends on how close we are to the object
-        agentPos = self.getPosition()
-        if agentPos == None:
-            return False
-        distanceFromTarget = MathUtils.distanceBetweenPoints(agentPos, targetPosition)
-        yawRate = self.__getYawRateToFacePosition__(targetPosition)
-        pitchRate = self.__getPitchRateToFacePosition__(targetPosition)
-        self.__startChangingYaw__(yawRate)
-        self.__startChangingPitch__(pitchRate)
-        if distanceFromTarget > 7:
-            if abs(yawRate) >= .25 or abs(pitchRate) >= .25:
-                return False
+    def __isLookingAt(self, targetPos, pitchRate=None, yawRate=None):
+        '''
+        Returns true if the agent is currently looking at the given (x,y,z) position.
+        Optionally provide the pitch and yaw turning rates if they were already previously calculated.
+        '''
+        pitchRate = pitchRate if pitchRate != None else self.__calculateTargetPitchRate(targetPos)
+        yawRate = yawRate if yawRate != None else self.__calculateTargetYawRate(targetPos)
+
+        # Tolerance depends on how close we are to the target
+        aPos = self.__position()
+        distance = MathUtils.distanceBetweenPoints(aPos, targetPos)
+        if distance > 7:
+            return abs(pitchRate) < .25 and abs(yawRate) < .25
         else:
-            if abs(yawRate) >= .8 or abs(pitchRate) >= .8:
-                return False
-        return True
+            return abs(pitchRate) < .8 and abs(yawRate) < .8
 
     def lookAtEntity(self, entity):
-        """
-        Begin continuously turning/looking to face the specified entity.
-        Returns true if the agent is currently facing the entity. Returns false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.lookAtEntity:
-            return self.actionOverride.function(*self.actionOverride.args)
+        '''
+        Begin moving the agent's POV up/down and left/right to face the given entity.
+        Returns true if the agent is facing the entity, false otherwise.
 
-        if not isItem(entity.type):
-            Logger.logLookAtStart(self, entity)
-            self.lastStartedLookingAt = entity.id
+            Preconditions:
+                None
+        '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.lookAtEntity):
+            return self.__actionOverride.function(*self.__actionOverride.args)
 
-        # Look at the target
-        isLookingAt = self.__lookAtPosition__(entity.position)
-        if isLookingAt:
-            self.__stopChangingPitch__()
-            self.__stopChangingYaw__()
-            if not isItem(entity.type):
-                Logger.logLookAtFinish(self, entity)
-                self.lastFinishedLookingAt = entity.id
+        # If entity is an agent, represent it as an entity
+        if isinstance(entity, Agent):
+            entity = Entity(entity.id, "agent", entity.__position(), 1)
+
+        # Preconditions - None
+
+        # Action
+        pitchRate = self.__calculateTargetPitchRate(entity.position)
+        yawRate = self.__calculateTargetYawRate(entity.position)
+        if self.__isLookingAt(entity.position, pitchRate, yawRate):
+            self.__stopTurning()
+            self.__logReports.append(LogUtils.LookAtReport(entity))
             return True
-        return False
-
-    def lookAtAgent(self, agent):
-        """
-        Begin continuously turning/looking to face the specified agent.
-        Returns true if the agent is currently facing the agent. Returns false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.lookAtAgent:
-            return self.actionOverride.function(*self.actionOverride.args)
-
-        agentId = agent.getId()
-        agentPos = agent.getPosition()
-        if agentId == None or agentPos == None:
+        else:
+            self.__startChangingPitch(pitchRate)
+            self.__startChangingYaw(yawRate)
             return False
 
-        # Represent the agent as an EntityInfo tuple
-        agentEntity = Entity(agentId, "agent", agentPos, 1)
+    def __isAt(self, targetPos, minTol=0.0, maxTol=STRIKING_DISTANCE):
+        '''
+        Returns true if the agent is currently at the given (x,y,z) position within tolerance.
+        Tolerance values are as follows:
 
-        Logger.logLookAtStart(self, agentEntity)
-        self.lastStartedLookingAt = agentId
-
-        # Look at the target
-        isLookingAt = self.__lookAtPosition__(agentPos)
-        if isLookingAt:
-            self.__stopChangingPitch__()
-            self.__stopChangingYaw__()
-            self.lastFinishedLookingAt = agent.id
-            Logger.logLookAtFinish(self, agentEntity)
+            minTol: Agent must be no closer than this value
+            maxTol: Agent must be closer than this value
+        '''
+        aPos = self.__position()
+        distance = MathUtils.distanceBetweenPointsXZ(aPos, targetPos)
+        if distance >= minTol and distance <= maxTol:
             return True
-        return False
-
-    def __isAt__(self, targetPosition, tol = 0.5):
-        """
-        Returns true if this agent is currently at the target position (within the tolerance provided).
-        """
-        agentPos = self.getPosition()
-        if agentPos == None:
+        else:
             return False
 
-        distance = MathUtils.distanceBetweenPointsXZ(agentPos, targetPosition)
-        if distance > tol:
-            return False
-        
-        return True
+    def __moveToPosition(self, targetPos, minTol=0.0, maxTol=STRIKING_DISTANCE, hardStop=True):
+        '''
+        Command the agent to begin walking forwards or backwards in order to reach the given target
+        (x,y,z) position within tolerance. Returns true if the agent is at the target, false otherwise.
+        This function takes several optional arguments:
 
-    def __moveToPosition__(self, targetPosition, tol = 0.5, minDistance = 0.0, hardStop = True):
-        """
-        Begin continuously moving to reach a desired Vector position.
-        Optionally specify a tolerance, as well as a minimum distance that the agent can be close to the target.
-        Returns true if the agent is currently at the desired target. Returns false otherwise.
-        """
-        agentPos = self.getPosition()
-        if agentPos == None:
-            return False
-
-        distance = MathUtils.distanceBetweenPointsXZ(agentPos, targetPosition)
-
-        if distance < tol and distance > minDistance:
+            minTol: Agent must be no closer than this value
+            maxTol: Agent must be closer than this value
+            hardStop: Once within tolerance, should the agent come to a complete stop
+        '''
+        aPos = self.__position()
+        distance = MathUtils.distanceBetweenPointsXZ(aPos, targetPos)
+        if distance >= minTol and distance <= maxTol:
             if hardStop:
                 self.stopMoving()
             else:
-                self.__startMoving__(0.4)
+                self.__startWalking(0.4)
             return True
-        elif distance > tol:
-            self.__startMoving__(1)
+        elif distance > maxTol:
+            self.__startWalking(1)
             return False
         else:
-            self.__startMoving__(-1)
+            self.__startWalking(-1)
             return False
 
     def moveToEntity(self, entity):
-        """
-        Begin continuously moving to reach the specified entity.
-        Returns true if the agent is currently within striking distance of the mob. Returns false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.moveToEntity:
-            return self.actionOverride.function(*self.actionOverride.args)
+        '''
+        Begin moving the agent to the given entity. Returns true if the agent is at the entity,
+        false otherwise.
 
-        # PRECONDITIONS
-        if self.actionOverride == None:
-            # Precondition: We are looking at the target
-            isLooking = self.__isLookingAt__(entity.position)
-            if not isLooking:
-                self.stopAllMovement()
-                return False
+            Preconditions:
+                - The agent is looking at the entity
+        '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.moveToEntity):
+            return self.__actionOverride.function(*self.__actionOverride.args)
 
-        if not isItem(entity.type):
-            Logger.logMoveToStart(self, entity)
-            self.lastStartedMovingTo = entity.id
-        
-        # Move to the target
-        isAt = self.__moveToPosition__(entity.position, STRIKING_DISTANCE)
-        if isAt:
-            if not isItem(entity.type):
-                self.lastFinishedMovingTo = entity.id
-                Logger.logMoveToFinish(self, entity)
+        # If entity is an agent, represent it as an entity
+        if isinstance(entity, Agent):
+            entity = Entity(entity.id, "agent", entity.__position(), 1)
+
+        # Preconditions
+        if not self.__checkPreconditions(self.__isLookingAt(entity.position)):
             self.stopMoving()
-            return True
-        return False
-
-    def __moveToItem__(self, item):
-        """
-        Begin continuously moving to reach a the specified item.
-        Returns the list of items that were added to the agent's inventory on success.
-        Returns None on failure.
-        """
-        # DO NOT CHECK ACTION OVERRIDE HERE... The only way we will have called this action is from PickUpItem...
-        # Which locks waiting for this action to report true
-
-        # PRECONDITIONS
-        if self.actionOverride == None:
-            # Precondition: We are looking at the target
-            isLooking = self.__isLookingAt__(item.position)
-            if not isLooking:
-                self.stopAllMovement()
-                return None
-
-        # If this is the first call to move to this item, remember the amount of the item we started with.
-        # Additionally, queue up each item id in the stack so that when they appear in the AgentInventory, the ids will be preserved.
-        if self.lastStartedMovingTo != item.id:
-            self.lastItemAmount = self.inventory.amountOfItem(item.type)
-
-        # Move to the target (do not allow hard-stop, in case we are not yet quite close enough to pick up item)
-        isAt = self.__moveToPosition__(item.position, PICK_UP_ITEM_DISTANCE, 0, False)
-        if isAt:
-            # Do not report true until we have officially picked up the item
-            newItems, _ = self.inventory.update()
-            newAmount = self.inventory.amountOfItem(item.type)
-            if newAmount > self.lastItemAmount:
-                self.actionOverride = None  # Release lock
-                self.stopMoving()   # Stop moving, since __moveToPosition__ will not stop agent automatically in this case
-                return newItems
-        return None
-
-    def moveToAgent(self, agent):
-        """
-        Begin continuously moving & turning to reach the specified agent.
-        Returns true if the agent is currently at the agent. Returns false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.moveToAgent:
-            return self.actionOverride.function(*self.actionOverride.args)
-
-        agentId = agent.getId()
-        agentPos = agent.getPosition()
-        if agentPos == None:
             return False
-        
-        # Represent the agent as an EntityInfo tuple
-        agentEntity = Entity(agentId, "agent", agentPos, 1)
 
-        # PRECONDITIONS
-        if self.actionOverride == None:
-            # Precondition: We are looking at target
-            isLooking = self.__isLookingAt__(agentPos)
-            if not isLooking:
-                self.stopAllMovement()
-                return False
+        # TODO - Item is special case
 
-        Logger.logMoveToStart(self, agentEntity)
-        self.lastStartedMovingTo = agentId
-
-        # Move to the target
-        isAt = self.__moveToPosition__(agentPos, GIVING_DISTANCE, 2)
-        if isAt:
-            self.lastFinishedMovingTo = agent.id
-            Logger.logMoveToFinish(self, agentEntity)
-            return True
-        return False
-
-    def pickUpItem(self, item):
-        """
-        Begin looking at and moving to a nearby item to pick it up and add it to the agent's inventory.
-        Returns true if the action has successfully completed, and false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.pickUpItem:
-            return self.actionOverride.function(*self.actionOverride.args)
-
-        # Look at the item (if we have already looked at the item and locked this function, skip this step)
-        if self.actionOverride == None:
-            isLookingAt = self.lookAtEntity(item)
-            if not isLookingAt:
-                return False
-
-        # We don't want to keep turning if we have no way to stop after locking
-        self.stopTurning()
-
-        # Note: At this point, we will lock down this function and force it to complete, as not to miss an addition to the agent's inventory
-        self.actionOverride = Action(self.pickUpItem, [item])
-        pickedUpItems = self.__moveToItem__(item)
-        if pickedUpItems != None:
-            self.actionOverride = None  # Release lock
-            for item in pickedUpItems:
-                Logger.logPickUpItem(self, item)
+        # Action
+        if self.__moveToPosition(entity.position):
+            self.__stopWalking()
+            self.__logReports.append(LogUtils.MoveToReport(entity))
             return True
         else:
             return False
 
-    def craft(self, item, recipeItems):
-        """
-        Craft an item from other items in this agent's inventory. This requires providing a list of RecipeItems.
-        Returns true if the item was successfully crafted and is in the agent's inventory. Returns false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.craft:
-            return self.actionOverride.function(*self.actionOverride.args)
-
-        # PRECONDITIONS
-        if self.actionOverride == None:
-            # Precondition - We have enough of each recipe item in our inventory
-            for recipeItem in recipeItems:
-                if self.inventory.amountOfItem(recipeItem.type) < recipeItem.quantity:
-                    return False
-
-        # Get a list of the items to be used
-        itemsUsed = []
-        for recipeItem in recipeItems:
-            items = self.inventory.allItemsByType(recipeItem.type)
-            for i in range(0, recipeItem.quantity):
-                itemsUsed.append(items[i])
-
-        # Craft the item and add it to our inventory, recording its id
-        self.host.sendCommand("craft {}".format(item.value))
-        time.sleep(0.5)
-
-        # Log the successful crafting of the item
-        Logger.logCraft(self, item, itemsUsed)
-        return True
-    
     def attackMob(self, mob):
-        """
-        Attack a mob using the currently equipped item, provided that it is within striking distance. This method
-        calls LookAt if it is necessary for the agent to turn to face the mob. Returns true if successful, and false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.attackMob:
-            return self.actionOverride.function(*self.actionOverride.args)
+        '''
+        Direct this agent to attack a mob using the currently equipped item. Returns true if the agent successfully
+        swung, false otherwise.
 
-        oldMobsKilled = self.getMobsKilled()
-        if oldMobsKilled == None:
+            Preconditions:
+                - The given entity is a mob
+                - The agent is looking at the mob
+                - The agent is at the mob
+        '''
+        # Check action override
+        if self.__shouldPerformActionOverride(self.attackMob):
+            return self.__actionOverride.function(*self.__actionOverride.args)
+
+        # Preconditions
+        if not self.__checkPreconditions(
+            Mobs.All.isMember(mob.type),
+            self.__isLookingAt(mob.position),
+            self.__isAt(mob.position)):
+            self.stopMoving()
             return False
 
-        # PRECONDITIONS
-        if self.actionOverride == None:
-            # Precondition: The provided entity is a mob
-            if not isMob(mob.type):
-                return False
+        # Action
+        oldMobsKilled = self.__mobsKilled()
+        self.__startAttacking()
+        self.stopMoving()
+        time.sleep(0.5)
+        newMobsKilled = self.__mobsKilled()
 
-            # Precondition: We are looking at target
-            isLooking = self.__isLookingAt__(mob.position)
-            if not isLooking:
-                self.stopAttacking()
-                return False
-
-            # Precondition: We are at the target
-            isAt = self.__isAt__(mob.position, STRIKING_DISTANCE)
-            if not isAt:
-                self.stopAllMovement()
-                return False
-
-        self.__startAttacking__()
-        self.stopAllMovement()    # Momentarily stop all movement to check if we killed the entity
-        time.sleep(0.5)           # Prevents spamming of the attack action
-        newMobsKilled = self.getMobsKilled()
+        # TODO - Wait to see if we pick up any items immediately as a result of a kill
+        # TODO - If # mobs killed increased by more than 1, account for this
+        obtainedItems = []
 
         if newMobsKilled > oldMobsKilled:
-            Logger.logAttack(self, mob, True)
+            self.__logReports.append(LogUtils.AttackReport(mob, True, obtainedItems))
         else:
-            Logger.logAttack(self, mob, False)
+            self.__logReports.append(LogUtils.AttackReport(mob, False, obtainedItems))
 
         return True
 
-    def equip(self, item):
-        """
-        Changes the currently equipped item to something in this agent's inventory. This can cause items to be
-        swapped from the hot-bar. 
-        
-        Returns true if the specified item is equipped. Returns false otherwise.
-        """
-        # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.equip:
-            return self.actionOverride.function(*self.actionOverride.args)
+    def pickUpItem(self, item):
+        '''
+        Pick up a nearby item, adding it to the agent's inventory. Returns true if the agent successfully picks
+        up the item, false otherwise.
+        '''
+        print("TODO")
 
-        # PRECONDITIONS
-        if self.actionOverride == None:
-            # Precondition: We have atleast one of that item
-            itemIdx = self.__locationOfItemInInventory__(item)
-            if itemIdx == -1:
-                return False
-        
-        # Obtain the inventory item we will give
-        inventoryItem = self.inventory.itemByType(item)
-        if inventoryItem == None:
+    def craft(self, itemType, recipe):
+        '''
+        Craft an item of the given type using a list of RecipeItems. Returns true if successful, and
+        false otherwise.
+
+            Preconditions:
+                - The agent has enough of each recipe item
+        '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.craft):
+            return self.__actionOverride.function(*self.__actionOverride.args)
+
+        # Preconditions
+        hasAllItems = True
+        for recipeItem in recipe:
+            if self.inventory.amountOfItem(recipeItem) < recipeItem.quantity:
+                hasAllItems = False
+                break
+        if not self.__checkPreconditions(hasAllItems):
             return False
 
-        # Check if item is already in hotbar (note: key commands are 1-indexed)
-        if itemIdx < 9:
-            self.host.sendCommand("hotbar.{} 1".format(itemIdx + 1))
-            self.host.sendCommand("hotbar.{} 0".format(itemIdx + 1))
-            Logger.logEquipItem(self, inventoryItem)
-            self.lastEquippedItem = inventoryItem.id
-            return True
+        # Remove each recipe item from the inventory
+        consumedItems = []
+        for recipeItem in recipe:
+            for i in range(0, recipeItem.quantity):
+                consumedItems.append(self.inventory.removeItem(recipeItem.type))
         
-        # Try to swap the item into the hotbar where there currently exists no item
-        swapIndex = self.__getNextAvailableHotbarIndex__()
-        if swapIndex != -1:
-            self.host.sendCommand("swapInventoryItems {} {}".format(swapIndex, itemIdx))
-            self.host.sendCommand("hotbar.{} 1".format(swapIndex + 1))
-            self.host.sendCommand("hotbar.{} 0".format(swapIndex + 1))
-            Logger.logEquipItem(self, inventoryItem)
-            self.lastEquippedItem = inventoryItem.id
+        # Add the crafted item to the inventory
+        craftedItem = self.inventory.addItem(itemType)
+
+        # Action
+        self.__host.sendCommand("craft {}".format(itemType.value))
+        time.sleep(0.5)
+        self.__logReports.append(LogUtils.CraftReport(craftedItem, recipeItem))
+        return True
+
+    def equip(self, itemType):
+        '''
+        Equip an item of the given type from this agent's inventory. Returns true if the agent successfully equips the item,
+        false otherwise.
+
+            Preconditions:
+                - The agent has an item of the given type
+        '''
+        # Check action override
+        if self.__shouldPerformActionOverride(self.equip):
+            return self.__actionOverride.function(*self.__actionOverride.args)
+
+        # Preconditions
+        if not self.__checkPreconditions(
+            self.inventory.amountOfItem(itemType.type) >= 1):
+            return False
+
+        # Return early if the item is already equipped
+        if self.inventory.equippedItem().type == itemType.type:
             return True
 
-        # Try to swap the item into the index currently in use
-        swapIndex = self.getCurrentHotbarIndex()
-        if swapIndex != -1:
-            self.host.sendCommand("swapInventoryItems {} {}".format(swapIndex, itemIdx))
-            self.host.sendCommand("hotbar.{} 1".format(swapIndex + 1))
-            self.host.sendCommand("hotbar.{} 0".format(swapIndex + 1))
-            Logger.logEquipItem(self, inventoryItem)
-            self.lastEquippedItem = inventoryItem.id
+        # Obtain a reference to the item we will equip
+        inventoryItem = self.inventory.getItem(itemType)
+        oldIndex = self.inventory.getItemIndex(itemType.type)
+        if inventoryItem == None or oldIndex == None:
+            return False
+
+        # If item is already in the hotbar...
+        if oldIndex < 9:
+            self.host.sendCommand("hotbar.{} 1".format(oldIndex + 1))
+            self.host.sendCommand("hotbar.{} 0".format(oldIndex + 1))
+            self.__completedActions(LogUtils.EquipReport(inventoryItem))
+            return True
+
+        # If there is an available hotbar slot...
+        newIndex = self.inventory.nextUnusedHotbarIndex()
+        if newIndex != None:
+            self.host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
+            self.host.sendCommand("hotbar.{} 1".format(newIndex + 1))
+            self.host.sendCommand("hotbar.{} 0".format(newIndex + 1))
+            self.__completedActions(LogUtils.EquipReport(inventoryItem))
+            return True
+
+        # Swap item in overflow w/ item in hotbar
+        newIndex = self.inventory.equippedIndex()
+        if newIndex != -1:
+            self.host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
+            self.host.sendCommand("hotbar.{} 1".format(newIndex + 1))
+            self.host.sendCommand("hotbar.{} 0".format(newIndex + 1))
+            self.__completedActions(LogUtils.EquipReport(inventoryItem))
             return True
         
         return False
 
-    def currentlyEquipped(self):
-        """
-        Returns the item currently equipped in this agent's inventory. Returns None if no such item exists.
-        """
-        inventoryJson = self.getInventoryJson()
-        hotbarIdx = self.getCurrentHotbarIndex()
-        if inventoryJson == None or hotbarIdx == None:
-            return
-        
-        for inventorySlot in inventoryJson:
-            if inventorySlot["index"] == hotbarIdx:
-                itemType = stringToItemEnum(inventorySlot["type"])
-                return self.inventory.itemByType(itemType)
-        return None
+    def giveItem(self, itemType, agent):
+        '''
+        Give an item of the given type to another agent. Returns true if successful, false otherwise.
 
-    def giveItemToAgent(self, item, agent):
-        """
-        Give an item in this agent's inventory to another agent.
-        Returns true if successful, and false otherwise.
-        """
+            Preconditions:
+                - The agent has an item of the given type
+                - The agent has that item currently equipped
+                - The agent is looking at the agent to give the item to
+                - The agent is at the agent to give the item to
+        '''
         # Check action override
-        if self.actionOverride != None and self.actionOverride.function != self.giveItemToAgent:
-            return self.actionOverride.function(*self.actionOverride.args)
+        if self.__shouldPerformActionOverride(self.giveItem):
+            return self.__actionOverride.function(*self.__actionOverride.args)
 
-        self.stopMoving()  # Make sure we are stopped before checking our direction and position
-        agentPos = agent.getPosition()
-        if agentPos == None:
+        # Stop moving before going any further...
+        self.stopMoving()
+
+        # Preconditions
+        equippedItem = self.inventory.equippedItem()
+        if not self.__checkPreconditions(
+            equippedItem != None,
+            equippedItem.type == itemType.value,
+            self.__isLookingAt(agent.__position()),
+            self.__isAt(agent.__position(), 2, GIVING_DISTANCE)
+        ):
             return False
 
-        # PRECONDITIONS
-        if self.actionOverride == None:
-            # Precondition: We have that item equipped (not possible if we do not have the item)
-            equippedItem = self.currentlyEquipped()
-            equippedItemType = "None" if equippedItem == None else equippedItem.type
-            if equippedItemType != item.value:
-                return False
+        # Record the exchange in each agent's inventory
+        toGive = self.inventory.removeItem(toGive)
+        agent.inventory.addItem(itemType, toGive.id)  # Preserve the ID
 
-            # Precondition: We are looking at the agent
-            isLookingAt = self.__isLookingAt__(agentPos)
-            if not isLookingAt:
-                return False
-
-            # Precondition: We are at the agent
-            isAt = self.__isAt__(agentPos, GIVING_DISTANCE)
-            if not isAt:
-                return False
-
-        # Remove one item of that type from this agent's inventory
-        inventoryItem = self.inventory.itemByType(item)
-        if inventoryItem == None:
-            return False
-        self.inventory.removeItem(inventoryItem)
-        agent.inventory.addItem(item.value, inventoryItem.id)   # We must preserve the id of the item
-
-        # Log the results
-        Logger.logGiveItemToAgent(self, inventoryItem, agent)
-
-        self.equip(item)
-        time.sleep(0.5) # There is a small delay in equipping an item
-        self.__throwItem__()
-        time.sleep(3)   # Wait for agent to pick up item
+        # Action
+        self.__throwItem()
+        time.sleep(2.8)
+        self.__logReports.append(LogUtils.GiveItemReport(toGive, agent))
         return True
-
-    class Metadata:
-        '''
-        Metadata containing current properties/aspects of an agent during a mission.
-        '''
-        def __init__(self):
-            self.lookingAt = None
-            self.at = None
-            self.closestMob = None
-            self.closestPeacefulMob = None
-            self.closestHostileMob = None
-            self.closestFoodMob = None
-            self.closestItem = None
-            self.closestFoodItem = None
-            self.equippedItem = None

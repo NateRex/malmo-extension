@@ -45,15 +45,18 @@ builder.environment.addMob(Mobs.Hostile.Zombie, Vector(5, 4, -11))
 
 # START THE MISSION ==============================================================================================
 
+logger = Logger()
+logger.setLoggingLevel(player_agent, Logger.Flags.ClosestMob_Hostile.value)
+
 malmoutils.loadMission(builder)
 malmoutils.startMission()
-malmoutils.startLogging(
-    player_agent, LogFlags.ClosestHostileMob.value  # want verbose output for zombies close to player
-)
+
+logger.start()
 
 # DEFINE AGENT ACTIONS ===========================================================================================
 
 while malmoutils.isMissionActive():
+    logger.update()         # update the log
     Performance.update()    # update performance data
 
     defender_agent.equip(Items.All.diamond_sword)   # ensure sword is equipped
@@ -82,5 +85,5 @@ while malmoutils.isMissionActive():
 
 
 # CLEANUP =========================================================================================
-
-malmoutils.finish()
+logger.export()
+Performance.export()
