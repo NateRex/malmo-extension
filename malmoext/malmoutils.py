@@ -20,7 +20,6 @@
 from __future__ import print_function
 
 import malmoext.MalmoPython as MalmoPython
-from malmoext.Performance import *
 from malmoext.Agent import *
 from malmoext.MissionBuilder import *
 import os
@@ -31,6 +30,9 @@ import errno
 CLIENT_POOL = None
 MISSION = None
 AGENTS = []
+
+
+# ORIGINAL MALMO FUNCTIONS ======================================================================================
 
 def __fix_print__():
     # We want to flush the print output immediately, so that we can view test output as it happens.
@@ -103,6 +105,11 @@ def __get_recordings_directory__(agent_host):
                 raise
     return recordingsDirectory
 
+
+
+# MALMO-EXTENSION ADDED FUNCTIONS ====================================================================================
+
+
 def initializeMalmo(numberOfAgents = 1):
     '''
     Initialize Microsoft's Malmo Platform by connecting to running clients.
@@ -139,7 +146,6 @@ def __loadAgents__(agents):
     '''
     global AGENTS
     __parse_command_line__(agents[0].getMalmoAgent())
-    Performance.trackAgents(agents)
     AGENTS = agents
 
 def __safeMissionStart__(agent_host, mission, client_pool, recording, role, experimentId):
