@@ -1,5 +1,6 @@
 import os
 import time
+from enum import Enum
 from datetime import datetime
 from malmoext.Utils import Mobs, Items, LogUtils
 from malmoext.Agent import Agent
@@ -11,9 +12,9 @@ class Logger:
     made via the static class methods.
     '''
     def __init__(self):
-        self.__log = []                  # The log contents, split by line
-        self.__currentState = State()    # Representation of the current state
-        self.__logFlags = {}             # A map of agent IDs to the logging flags for each agent
+        self.__log = []                         # The log contents, split by line
+        self.__currentState = Logger.State()    # Representation of the current state
+        self.__logFlags = {}                    # A map of agent IDs to the logging flags for each agent
 
     def setLoggingLevel(self, agent, flags):
         '''
@@ -122,8 +123,8 @@ class Logger:
 
         allAgents = Agent.allAgents
         allItemsInInventory = {}
-        allItems = self.__currentState.items.values()
-        allMobs = self.__currentState.mobs.values()
+        allItems = list(self.__currentState.items.values())
+        allMobs = list(self.__currentState.mobs.values())
 
         # Re-define all mobs
         for mob in allMobs:
@@ -146,7 +147,7 @@ class Logger:
             self.__appendLine("at-{}-{}".format(agent.id, agentMetadata.at if agentMetadata.at != None else "None"))
 
             # Log agent inventory (from metadata)
-            for item in agentMetadata.inventory.values():
+            for item in list(agentMetadata.inventory.values()):
                 allItemsInInventory[item.id] = item
                 self.__appendLine("at-{}-{}".format(item.id, agent.id))
             equippedItem = agentMetadata.equippedItem

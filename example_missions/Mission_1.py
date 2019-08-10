@@ -45,12 +45,15 @@ builder.environment.addMob(Mobs.Hostile.Zombie, Vector(5, 4, -11))
 
 # START THE MISSION ==============================================================================================
 
+# Set up loggers
 logger = Logger()
 logger.setLoggingLevel(player_agent, Logger.Flags.ClosestMob_Hostile.value)
 
+# Start mission
 malmoutils.loadMission(builder)
 malmoutils.startMission()
 
+# Start loggers
 logger.start()
 
 # DEFINE AGENT ACTIONS ===========================================================================================
@@ -84,6 +87,6 @@ while malmoutils.isMissionActive():
 
 
 
-# CLEANUP =========================================================================================
+# FINISH ==========================================================================================================
 logger.export()
 Performance.export()

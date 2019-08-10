@@ -29,11 +29,20 @@ class Agent:
         self.type = agentType                   # The AgentType of this agent
         self.inventory = Inventory(self)        # Reference to this agent's inventory
 
+        # Add this agent to the global registry
+        Agent.allAgents[self.id] = self
+
     def isMissionActive(self):
         '''
         Returns true if the mission involving this agent is still running.
         '''
         return self.__host.peekWorldState().is_mission_running
+
+    def getMalmoAgent(self):
+        '''
+        Returns a reference to the raw Malmo AgentHost object that this object serves as a wrapper for.
+        '''
+        return self.__host
 
     def toJSON(self):
         '''
@@ -545,26 +554,26 @@ class Agent:
 
         # If item is already in the hotbar...
         if oldIndex < 9:
-            self.host.sendCommand("hotbar.{} 1".format(oldIndex + 1))
-            self.host.sendCommand("hotbar.{} 0".format(oldIndex + 1))
+            self.__host.sendCommand("hotbar.{} 1".format(oldIndex + 1))
+            self.__host.sendCommand("hotbar.{} 0".format(oldIndex + 1))
             self.__completedActions(LogUtils.EquipReport(inventoryItem))
             return True
 
         # If there is an available hotbar slot...
         newIndex = self.inventory.nextUnusedHotbarIndex()
         if newIndex != None:
-            self.host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
-            self.host.sendCommand("hotbar.{} 1".format(newIndex + 1))
-            self.host.sendCommand("hotbar.{} 0".format(newIndex + 1))
+            self.__host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
+            self.__host.sendCommand("hotbar.{} 1".format(newIndex + 1))
+            self.__host.sendCommand("hotbar.{} 0".format(newIndex + 1))
             self.__completedActions(LogUtils.EquipReport(inventoryItem))
             return True
 
         # Swap item in overflow w/ item in hotbar
         newIndex = self.inventory.equippedIndex()
         if newIndex != -1:
-            self.host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
-            self.host.sendCommand("hotbar.{} 1".format(newIndex + 1))
-            self.host.sendCommand("hotbar.{} 0".format(newIndex + 1))
+            self.__host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
+            self.__host.sendCommand("hotbar.{} 1".format(newIndex + 1))
+            self.__host.sendCommand("hotbar.{} 0".format(newIndex + 1))
             self.__completedActions(LogUtils.EquipReport(inventoryItem))
             return True
         

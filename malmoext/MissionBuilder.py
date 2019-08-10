@@ -250,7 +250,7 @@ class MissionBuilder:
         Otherwise, the agent will start at the origin (0, 0, 0) facing north.
         """
         agent = Agent(name, agentType)
-        self.agents[name] = AgentBuilder(agent.getId(), startPosition, startDirection)
+        self.agents[name] = AgentBuilder(agent.id, startPosition, startDirection)
         return agent
 
     def finish(self):

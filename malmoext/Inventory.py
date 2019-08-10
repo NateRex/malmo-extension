@@ -26,7 +26,7 @@ class Inventory:
         Returns a deep copy of this inventory as a list of items.
         '''
         result = []
-        for itemList in self.__map.values():
+        for itemList in list(self.__map.values()):
             result = result + copy.deepcopy(itemList)
 
     def asMap(self):
@@ -34,7 +34,7 @@ class Inventory:
         Returns a deep copy of this inventory as a map of item IDs to the item each ID represents.
         '''
         result = {}
-        allItems = [item for sublist in self.__map.values() for item in sublist]
+        allItems = [item for sublist in list(self.__map.values()) for item in sublist]
         for item in allItems:
             result[item.id] = item
         return result

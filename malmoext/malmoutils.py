@@ -119,7 +119,7 @@ def loadMission(builder):
     Load a mission to run by supplying a MissionBuilder object.
     '''
     __loadEnvironmentXML__(builder.finish())
-    __loadAgents__(Agent.agentList)
+    __loadAgents__(list(Agent.allAgents.values()))
 
 def __loadEnvironmentXML__(xml):
     '''
@@ -138,7 +138,7 @@ def __loadAgents__(agents):
     supplying any number of Agent objects.
     '''
     global AGENTS
-    __parse_command_line__(agents[0].host)
+    __parse_command_line__(agents[0].getMalmoAgent())
     Performance.trackAgents(agents)
     AGENTS = agents
 
@@ -204,7 +204,7 @@ def startMission():
     Start the mission previously loaded.
     '''
     i = 0
-    agent_hosts = list(map(lambda x: x.host, AGENTS))
+    agent_hosts = list(map(lambda x: x.getMalmoAgent(), AGENTS))
     for host in agent_hosts:
         __safeMissionStart__(host, MISSION, CLIENT_POOL, __get_default_recording_object__(agent_hosts[0], "agent_{}_viewpoint_continuous".format(i + 1)), i, '')
         i += 1
@@ -214,7 +214,7 @@ def isMissionActive():
     '''
     Returns true if the mission is still active/running, false otherwise.
     '''
-    for agent in Agent.agentList:
+    for agent in list(Agent.allAgents.values()):
         if agent.isMissionActive():
             return True
     return False
