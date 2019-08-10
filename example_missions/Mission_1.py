@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # ===============================================================================================
 # Name: Mission1
-# Description: Two-agent mission where a 'defender' agent protects a 'player' agent using a sword
+# Description: Two-agent mission where a 'Defender' agent protects a 'Player' agent using a sword
 # ===============================================================================================
 
 import sys              # <--- Delete this line if you installed malmoext using pip
@@ -85,7 +85,7 @@ while malmoutils.isMissionActive():
     # Nothing to do...
     defender_agent.stopMoving()
 
-
+logger.stop()
 
 # FINISH ==========================================================================================================
 logger.export()

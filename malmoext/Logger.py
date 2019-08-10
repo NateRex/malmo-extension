@@ -5,6 +5,8 @@ from datetime import datetime
 from malmoext.Utils import Mobs, Items, LogUtils
 from malmoext.Agent import Agent
 
+import traceback
+
 class Logger:
     '''
     Singleton class that produces state and action information for agents operating in a mission.
@@ -88,6 +90,7 @@ class Logger:
             equippedItem = agent.inventory.equippedItem()
             equippedID = equippedItem.id if equippedItem != None else "None"
             self.__appendLine("equipped_item-{}-{}".format(agent.id, equippedID))
+            agentMetadata.equippedItem = equippedItem
 
             # Nearby entities to this agent
             self.__logEntities(agent.nearbyEntities())
@@ -143,10 +146,10 @@ class Logger:
             self.__logAgent(agent, True)
 
             # Log where agent is looking (from metadata)
-            self.__appendLine("looking_at-{}-{}".format(agent.id, agentMetadata.lookingAt if agentMetadata.lookingAt != None else "None"))
+            self.__appendLine("looking_at-{}-{}".format(agent.id, agentMetadata.lookingAt.id if agentMetadata.lookingAt != None else "None"))
 
             # Log where the agent is at (from metadata)
-            self.__appendLine("at-{}-{}".format(agent.id, agentMetadata.at if agentMetadata.at != None else "None"))
+            self.__appendLine("at-{}-{}".format(agent.id, agentMetadata.at.id if agentMetadata.at != None else "None"))
 
             # Log agent inventory (from metadata)
             for item in list(agentMetadata.inventory.values()):
@@ -171,18 +174,19 @@ class Logger:
             if item.id not in allItemsInInventory:
                 self.__appendLine("at-{}-None".format(item.id))
 
-    def __logIsAlive(self, entity, isAlive):
+    def __logIsAlive(self, entity, isAlive, force=False):
         '''
-        Log that the given entity is either alive or dead.
+        Log that the given entity is either alive or dead. If the entity was already declared as such, this method
+        has no effect unless the force argument is set to True.
         '''
         entityId = entity.id
         if isAlive:
-            if entityId not in self.__currentState.alive:
+            if force or entityId not in self.__currentState.alive:
                 self.__appendLine("status-{}-alive".format(entityId))
                 self.__currentState.alive.add(entityId)
                 self.__currentState.dead.discard(entityId)
         else:
-            if entityId not in self.__currentState.dead:
+            if force or entityId not in self.__currentState.dead:
                 self.__appendLine("status-{}-dead".format(entityId))
                 self.__currentState.dead.add(entityId)
                 self.__currentState.dead.discard(entityId)
@@ -196,9 +200,9 @@ class Logger:
             return
 
         # Add to log
-        self.__appendLine("agents-{}-{}".format(agent.id, agent.id[:-1]))
+        self.__appendLine("agents-{}-Agent".format(agent.id))
         isAlive = agent.isAlive()
-        self.__logIsAlive(agent, isAlive)
+        self.__logIsAlive(agent, isAlive, force)
         
         # Update current state
         self.__currentState.agents[agent.id] = Logger.AgentMetadata()
@@ -217,8 +221,8 @@ class Logger:
 
         # Add to log
         self.__appendLine("mobs-{}-{}".format(mob.id, mob.type))
-        isAlive = True if mob.id in self.__currentState.dead else False
-        self.__logIsAlive(mob, isAlive)
+        isAlive = True if mob.id not in self.__currentState.dead else False
+        self.__logIsAlive(mob, isAlive, force)
 
         # Update current state
         self.__currentState.mobs[mob.id] = mob

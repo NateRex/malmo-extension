@@ -27,7 +27,7 @@ class Inventory:
         '''
         result = []
         for itemList in list(self.__map.values()):
-            result = result + copy.deepcopy(itemList)
+            result += copy.deepcopy(itemList)
         return result
 
     def asMap(self):
@@ -71,7 +71,7 @@ class Inventory:
             previousQuantity = len(self.__map[itemType])
             if itemQuantity > previousQuantity:
                 for i in range(previousQuantity, itemQuantity):
-                    self.__map[itemType].append(self.addItem(itemType))
+                    itemsAdded.append(self.addItem(itemType))
             elif itemQuantity < previousQuantity:
                 for i in range(itemQuantity, previousQuantity):
                     if len(self.__map[itemType]) > 0:
