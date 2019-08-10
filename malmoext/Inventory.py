@@ -9,7 +9,7 @@ class Inventory:
     __nextID = 1                    # Global counter for uniquely identifying new items
 
     @staticmethod
-    def __nextID():
+    def __getNextID():
         '''
         Get the next ID to be used for defining an item, and increment the counter.
         '''
@@ -28,6 +28,7 @@ class Inventory:
         result = []
         for itemList in list(self.__map.values()):
             result = result + copy.deepcopy(itemList)
+        return result
 
     def asMap(self):
         '''
@@ -62,8 +63,12 @@ class Inventory:
                     itemQuantity += json[i]["quantity"]
             json = [item for item in json if item["type"] != itemType]
 
+            # If key for this item type did not previously exist, create it
+            if itemType not in self.__map:
+                self.__map[itemType] = []
+
             # If the item quantity is greater than what we had previously, add items. Otherwise, remove items.
-            previousQuantity = len(self.__map[itemType]) if itemType in self.__map else 0
+            previousQuantity = len(self.__map[itemType])
             if itemQuantity > previousQuantity:
                 for i in range(previousQuantity, itemQuantity):
                     self.__map[itemType].append(self.addItem(itemType))
@@ -93,7 +98,7 @@ class Inventory:
 
         # Figure out what ID to assign to the item
         if itemID == None:
-            itemID = "{}{}".format(itemType, Inventory.__nextID())
+            itemID = "{}{}".format(itemType, Inventory.__getNextID())
 
         newItem = Item(itemID, itemType)
         if itemType in self.__map:

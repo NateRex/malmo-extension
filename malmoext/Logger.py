@@ -60,15 +60,15 @@ class Logger:
         # Log out a special NoneType entity that we use as a placeholder for things not yet set
         self.__appendLine("none-None-NoneType")
 
-        allAgents = Agent.allAgents
+        allAgents = list(Agent.allAgents.values())
         for agent in allAgents:
             # Make sure logging flags have been set for this agent
             if (self.__logFlags[agent.id] == None):
                 self.__logFlags[agent.id] = Flags.Normal
 
-            # Define agent & create metadata object
+            # Define agent
             self.__logAgent(agent)
-            agentMetadata = AgentMetadata()
+            agentMetadata = self.__currentState.agents[agent.id]
 
             # Log where agent is looking (initially None)
             self.__appendLine("looking_at-{}-None".format(agent.id))
@@ -121,10 +121,10 @@ class Logger:
         self.__appendNewline()
         self.__appendLine("END")
 
-        allAgents = Agent.allAgents
-        allItemsInInventory = {}
+        allAgents = list(Agent.allAgents.values())
         allItems = list(self.__currentState.items.values())
         allMobs = list(self.__currentState.mobs.values())
+        allItemsInInventory = {}
 
         # Re-define all mobs
         for mob in allMobs:
@@ -199,7 +199,7 @@ class Logger:
         self.__logIsAlive(agent, isAlive)
         
         # Update current state
-        self.__currentState.agents[agentId] = AgentMetadata(agent)
+        self.__currentState.agents[agent.id] = Logger.AgentMetadata()
         if isAlive:
             self.__currentState.alive.add(agent.id)
         else:
