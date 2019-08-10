@@ -189,7 +189,7 @@ class Logger:
             if force or entityId not in self.__currentState.dead:
                 self.__appendLine("status-{}-dead".format(entityId))
                 self.__currentState.dead.add(entityId)
-                self.__currentState.dead.discard(entityId)
+                self.__currentState.alive.discard(entityId)
 
     def __logAgent(self, agent, force=False):
         '''
@@ -346,7 +346,22 @@ class Logger:
         # Postconditions
         self.__appendLine("at-{}-{}".format(agent.id, toID))
 
-    def __logAttack(self, agent, mob, wasKilled, itemsObtained):
+    def __logPickUpItem(self, agent, item):
+        '''
+        Log the preconditions, action, and postconditions for an agent having picked up an item from the ground.
+        '''
+        self.__appendNewline()
+
+        # Preconditions
+        self.__appendLine("at-{}-None".format(item.id))
+
+        # Action
+        self.__appendLine("!PICKUPITEM-{}-{}".format(agent.id, item.id))
+
+        # Postconditions
+        self.__appendLine("at-{}-{}".format(item.id, agent.id))
+
+    def __logAttack(self, agent, mob, wasKilled, itemsDropped, itemsPickedUp):
         '''
         Log the preconditions, action, and postconditions for an agent attacking (and possibly
         killing) a mob.
@@ -363,7 +378,10 @@ class Logger:
         # Postconditions
         if wasKilled:
             self.__logIsAlive(mob, False)
-            for item in itemsObtained:
+            for item in itemsDropped:
+                self.__logItem(item)
+                self.__appendLine("at-{}-None".format(item.id))
+            for item in itemsPickedUp:
                 self.__logItem(item)
                 self.__appendLine("at-{}-{}".format(item.id, agent.id))
 
@@ -464,6 +482,13 @@ class Logger:
             self.__logMoveTo(agent, oldMoveTo, logReport.entity)
             self.__currentState.agents[agent.id].at = logReport.entity
 
+    def __handlePickUpItemReport(self, agent, logReport):
+        '''
+        Handle a PickUpItemReport from an agent.
+        '''
+        self.__logPickUpItem(agent, logReport.item)
+        self.__currentState.agents[agent.id].inventory[logReport.item.id] = logReport.item
+
     def __handleCraftReport(self, agent, logReport):
         '''
         Handle a CraftReport from an agent.
@@ -477,9 +502,12 @@ class Logger:
         '''
         Handle an AttackReport from an agent.
         '''
-        self.__logAttack(agent, logReport.mob, logReport.didKill, logReport.itemsObtained)
-        for itemObtained in logReport.itemsObtained:
-            self.__currentState.agents[agent.id].inventory[itemObtained.id] = itemObtained
+        self.__logAttack(agent, logReport.mob, logReport.didKill, logReport.itemsDropped, logReport.itemsPickedUp)
+        for itemDropped in logReport.itemsDropped:
+            self.__currentState.items[itemDropped.id] = itemDropped
+        for itemPickup in logReport.itemsPickedUp:
+            self.__currentState.items[itemPickup.id] = itemPickup
+            self.__currentState.agents[agent.id].inventory[itemPickup.id] = itemPickup
 
     def __handleEquipReport(self, agent, logReport):
         '''
@@ -516,6 +544,8 @@ class Logger:
                 self.__handleLookAtReport(agent, logReport)
             elif logReportType == "MoveToReport":
                 self.__handleMoveToReport(agent, logReport)
+            elif logReportType == "PickUpItemReport":
+                self.__handlePickUpItemReport(agent, logReport)
             elif logReportType == "CraftReport":
                 self.__handleCraftReport(agent, logReport)
             elif logReportType == "AttackReport":

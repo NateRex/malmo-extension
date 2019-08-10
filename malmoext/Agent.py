@@ -5,7 +5,7 @@ import time
 import copy
 from enum import Enum
 from collections import namedtuple
-from malmoext.Utils import MathUtils, Mobs, Items, LogUtils, Vector, Entity, numerifyId, STRIKING_DISTANCE, GIVING_DISTANCE
+from malmoext.Utils import MathUtils, Mobs, Items, LogUtils, Vector, Entity, numerifyId, STRIKING_DISTANCE, GIVING_DISTANCE, PICK_UP_ITEM_LOCKDOWN_DISTANCE
 from malmoext.Inventory import Inventory
 
 class Agent:
@@ -15,7 +15,7 @@ class Agent:
     agent automatically triggers logging by any loggers that get updated.
     '''
     allAgents = {}  # A map containing all agents that were created, accessible by ID
-    ActionOverride = namedtuple("ActionOverride", "function args")  # Representation of an action w/ args that should internally override any other action called
+    ActionOverride = namedtuple("ActionOverride", "function args")  # Representation of an action w/ args and cached data that should internally override any other action called
 
     def __init__(self, agentID, agentType):
         if agentID in Agent.allAgents:
@@ -56,10 +56,10 @@ class Agent:
     def getAndClearLogReports(self):
         '''
         THIS METHOD SHOULD ONLY BE USED INTERNALLY BY THE LOGGER. Returns the list of actions that
-        need logging since last iteration.
+        need logging since last iteration, and resets the list.
         '''
-        result = copy.deepcopy(self.__logReports)
-        self.__logReports.clear()
+        result = self.__logReports
+        self.__logReports = []
         return result
 
     def isAlive(self):
@@ -173,7 +173,7 @@ class Agent:
 
     def closestMob(self, variant=Mobs.All):
         '''
-        Get the closest mob to this agent. Optionally specify additional modifiers for filtering mobs by type.
+        Get the closest mob to this agent. Optionally specify additional modifiers for filtering mobs by an enumerated type.
         Returns None if no mob was found nearby to this agent.
         '''
         aPos = self.__position()
@@ -204,7 +204,7 @@ class Agent:
     def closestItem(self, variant=Items.All):
         '''
         Get the closest item on the ground to this agent. Optionally specify additional modifiers for filtering
-        items by type. Returns None if no item was found nearby to this agent.
+        items by an enumerated type. Returns None if no item was found nearby to this agent.
         '''
         aPos = self.__position()
         nearbyEntities = self.nearbyEntities()
@@ -364,7 +364,8 @@ class Agent:
         yawRate = self.__calculateTargetYawRate(entity.position)
         if self.__isLookingAt(entity.position, pitchRate, yawRate):
             self.__stopTurning()
-            self.__logReports.append(LogUtils.LookAtReport(entity))
+            if not Items.All.isMember(entity.type):  # Items are a special case
+                self.__logReports.append(LogUtils.LookAtReport(entity))
             return True
         else:
             self.__startChangingPitch(pitchRate)
@@ -394,7 +395,7 @@ class Agent:
 
             minTol: Agent must be no closer than this value
             maxTol: Agent must be closer than this value
-            hardStop: Once within tolerance, should the agent come to a complete stop
+            hardStop: Once within tolerance, should the agent come to a complete stop, or slow down
         '''
         aPos = self.__position()
         distance = MathUtils.distanceBetweenPointsXZ(aPos, targetPos)
@@ -423,24 +424,61 @@ class Agent:
         if self.__shouldPerformActionOverride(self.moveTo):
             return self.__actionOverride.function(*self.__actionOverride.args)
 
+        minTol = 0.0
+        maxTol = STRIKING_DISTANCE
+
         # If entity is an agent, represent it as an entity
         if isinstance(entity, Agent):
             entity = Entity(entity.id, "agent", entity.__position(), 1)
+            minTol = 2.0
+            maxTol = GIVING_DISTANCE
 
         # Preconditions
         if not self.__checkPreconditions(self.__isLookingAt(entity.position)):
             self.stopMoving()
             return False
 
-        # TODO - Item is special case
+        # Items are a special case since they can be picked up. Once close, lock down on the pickUpItem action.
+        if Items.All.isMember(entity.type):
+            distanceToItem = MathUtils.distanceBetweenPointsXZ(self.__position(), entity.position)
+            if distanceToItem <= PICK_UP_ITEM_LOCKDOWN_DISTANCE:
+                currentInventoryAmt = self.inventory.amountOfItem(entity.type)
+                self.__actionOverride = Agent.ActionOverride(self.__pickUpItem, [entity, currentInventoryAmt])
+                return self.__pickUpItem(entity, currentInventoryAmt)
 
         # Action
-        if self.__moveToPosition(entity.position):
+        if self.__moveToPosition(entity.position, minTol, maxTol):
             self.__stopWalking()
             self.__logReports.append(LogUtils.MoveToReport(entity))
             return True
         else:
             return False
+
+    def __pickUpItem(self, item, previousInventoryAmt):
+        '''
+        Internal lockdown action for continuously moving an agent towards an item until it has been picked up and
+        shows up in the agent's inventory. Requires the previous amount of that item in the agent's inventory to be
+        passed in as a parameter.
+        '''
+        # Do not check for action override. Otherwise, we'd get stuck in an infinite loop!
+        # Do not check any preconditions - we assume that if we locked down on this override that preconditions remain satisfied
+
+        # Move to the position, slowing down as we approach
+        self.__moveToPosition(item.position, 0, PICK_UP_ITEM_LOCKDOWN_DISTANCE, False)
+
+        # Report true only if we picked up the item
+        newInventoryItems, _ = self.inventory.sync()
+        newInventoryAmt = self.inventory.amountOfItem(item.type)
+        if newInventoryAmt > previousInventoryAmt:
+            # Avoid stopMoving() function since it checks for action override
+            self.__stopTurning()
+            self.__stopWalking()
+            self.__stopAttacking()
+            self.__actionOverride = None
+            for item in newInventoryItems:
+                self.__logReports.append(LogUtils.PickUpItemReport(item))
+            return True
+        return False
 
     def attackMob(self, mob):
         '''
@@ -468,26 +506,24 @@ class Agent:
         oldMobsKilled = self.__mobsKilled()
         self.__startAttacking()
         self.stopMoving()
-        time.sleep(0.5)
+        time.sleep(1)
         newMobsKilled = self.__mobsKilled()
 
-        # TODO - Wait to see if we pick up any items immediately as a result of a kill
-        # TODO - If # mobs killed increased by more than 1, account for this
-        obtainedItems = []
-
         if newMobsKilled > oldMobsKilled:
-            self.__logReports.append(LogUtils.AttackReport(mob, True, obtainedItems))
+            # Get any items we immediately picked up
+            itemsPickedUp, _ = self.inventory.sync()
+
+            # Get any items that were dropped onto the ground (register their IDs w/ the Inventory class to preserve them)
+            nearbyEntities = self.nearbyEntities()
+            itemsDropped = [x for x in nearbyEntities if Items.All.isMember(x.type)]
+            for item in itemsDropped:
+                Inventory.registerDropItem(item)
+
+            self.__logReports.append(LogUtils.AttackReport(mob, True, itemsDropped, itemsPickedUp))
         else:
-            self.__logReports.append(LogUtils.AttackReport(mob, False, obtainedItems))
+            self.__logReports.append(LogUtils.AttackReport(mob, False, [], []))
 
         return True
-
-    def pickUpItem(self, item):
-        '''
-        Pick up a nearby item, adding it to the agent's inventory. Returns true if the agent successfully picks
-        up the item, false otherwise.
-        '''
-        print("TODO")
 
     def craft(self, itemType, recipe):
         '''
@@ -542,10 +578,6 @@ class Agent:
             self.inventory.amountOfItem(itemType) >= 1):
             return False
 
-        # Return early if the item is already equipped
-        if self.inventory.equippedItem().type == itemType.value:
-            return True
-
         # Obtain a reference to the item we will equip
         inventoryItem = self.inventory.getItem(itemType)
         oldIndex = self.inventory.getItemIndex(itemType)
@@ -556,7 +588,7 @@ class Agent:
         if oldIndex < 9:
             self.__host.sendCommand("hotbar.{} 1".format(oldIndex + 1))
             self.__host.sendCommand("hotbar.{} 0".format(oldIndex + 1))
-            self.__completedActions(LogUtils.EquipReport(inventoryItem))
+            self.__logReports.append(LogUtils.EquipReport(inventoryItem))
             return True
 
         # If there is an available hotbar slot...
@@ -565,7 +597,7 @@ class Agent:
             self.__host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
             self.__host.sendCommand("hotbar.{} 1".format(newIndex + 1))
             self.__host.sendCommand("hotbar.{} 0".format(newIndex + 1))
-            self.__completedActions(LogUtils.EquipReport(inventoryItem))
+            self.__logReports.append(LogUtils.EquipReport(inventoryItem))
             return True
 
         # Swap item in overflow w/ item in hotbar
@@ -574,7 +606,7 @@ class Agent:
             self.__host.sendCommand("swapInventoryItems {} {}".format(newIndex, oldIndex))
             self.__host.sendCommand("hotbar.{} 1".format(newIndex + 1))
             self.__host.sendCommand("hotbar.{} 0".format(newIndex + 1))
-            self.__completedActions(LogUtils.EquipReport(inventoryItem))
+            self.__logReports.append(LogUtils.EquipReport(inventoryItem))
             return True
         
         return False
@@ -607,7 +639,7 @@ class Agent:
             return False
 
         # Record the exchange in each agent's inventory
-        toGive = self.inventory.removeItem(toGive)
+        toGive = self.inventory.removeItem(itemType)
         agent.inventory.addItem(itemType, toGive.id)  # Preserve the ID
 
         # Action

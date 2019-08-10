@@ -14,9 +14,9 @@ from enum import Enum
 NUMBER_OF_INVENTORY_SLOTS = 40
 
 # Tolerances for completing continuous actions
-PICK_UP_ITEM_DISTANCE = 4
 STRIKING_DISTANCE = 3
-GIVING_DISTANCE = 4
+GIVING_DISTANCE = 5
+PICK_UP_ITEM_LOCKDOWN_DISTANCE = 7
 
 # The size of the observation grid for an agent, as well as how many blocks are in each axis
 GRID_OBSERVATION_SIZE = 605
@@ -179,8 +179,9 @@ class LogUtils:
     ClosestItemReport  = namedtuple("ClosestItemReport", "variant item")
     LookAtReport       = namedtuple("LookAtReport", "entity")
     MoveToReport       = namedtuple("MoveToReport", "entity")
+    PickUpItemReport   = namedtuple("PickUpItemReport", "item")
     CraftReport        = namedtuple("CraftReport", "itemCrafted itemsUsed")
-    AttackReport       = namedtuple("AttackReport", "mob didKill itemsObtained")
+    AttackReport       = namedtuple("AttackReport", "mob didKill itemsDropped itemsPickedUp")
     EquipReport        = namedtuple("EquipReport", "item")
     GiveItemReport     = namedtuple("GiveItemReport", "item agent")
 

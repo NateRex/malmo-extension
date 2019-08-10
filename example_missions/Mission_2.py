@@ -15,7 +15,7 @@ from malmoext import *
 
 # Initialize Malmo for 2 agents, and create each agent
 malmoutils.initializeMalmo(2)
-builder = MissionBuilder("Farm Food for Player", 30000, TimeOfDay.Midnight)
+builder = MissionBuilder("Farm Food for Player", 30000, TimeOfDay.Noon)
 player_agent = builder.addAgent("Player", AgentType.Hardcoded, Vector(-15, 4, -16), Direction.North)
 farmer_agent = builder.addAgent("Farmer", AgentType.Hardcoded, Vector(-15, 4, -15), Direction.South)
 
@@ -57,7 +57,35 @@ while malmoutils.isMissionActive():
     logger.update()         # update the log
     #Performance.update()    # update performance data
 
-    # TODO
+    if farmer_agent.inventory.amountOfItem(Items.Food.beef) > 0:  # Give any held beef to the player
+        if not farmer_agent.lookAt(player_agent):
+            continue
+        if not farmer_agent.moveTo(player_agent):
+            continue
+        farmer_agent.equip(Items.Food.beef)
+        farmer_agent.giveItem(Items.Food.beef, player_agent)
+        continue
+
+    closestFood = farmer_agent.closestItem(Items.Food)  # Collect any beef laying on the ground nearby
+    if closestFood != None:
+        if not farmer_agent.lookAt(closestFood):
+            continue
+        if not farmer_agent.moveTo(closestFood):
+            continue
+        continue
+
+    farmer_agent.equip(Items.All.diamond_sword)     # Harvest any nearby cows
+    closestCow = farmer_agent.closestMob(Mobs.Food)
+    if closestCow != None:
+        if not farmer_agent.lookAt(closestCow):
+            continue
+        if not farmer_agent.moveTo(closestCow):
+            continue
+        if not farmer_agent.attackMob(closestCow):
+            continue
+        continue
+
+    farmer_agent.stopMoving()   # Nothing to do...
 
 # Stop the loggers
 logger.stop()

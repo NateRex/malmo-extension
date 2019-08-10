@@ -71,20 +71,16 @@ while malmoutils.isMissionActive():
 
     zombie = player_agent.closestMob(Mobs.Hostile)    # target closest zombie to the player
     if zombie != None:
-        isLookingAt = defender_agent.lookAt(zombie)
-        if not isLookingAt:
+        if not defender_agent.lookAt(zombie):
             continue
-        isAt = defender_agent.moveTo(zombie)
-        if not isAt:
+        if not defender_agent.moveTo(zombie):
             continue
         defender_agent.attackMob(zombie)
         continue
 
-    isLookingAt = defender_agent.lookAt(player_agent)     # no zombies.. move to player
-    if not isLookingAt:
+    if not defender_agent.lookAt(player_agent):     # no zombies.. move to player
         continue
-    isAt = defender_agent.moveTo(player_agent)
-    if not isAt:
+    if not defender_agent.moveTo(player_agent):
         continue
 
     # Nothing to do...

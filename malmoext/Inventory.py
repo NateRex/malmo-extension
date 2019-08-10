@@ -6,7 +6,8 @@ class Inventory:
     '''
     A representation of an agent's inventory.
     '''
-    __nextID = 1                    # Global counter for uniquely identifying new items
+    __nextID = 1               # Global counter for uniquely identifying new items
+    __dropItemRegistry = {}    # Map of item types to a list of known drop item IDs (used to preserve IDs between drop time & pickup time)
 
     @staticmethod
     def __getNextID():
@@ -16,6 +17,16 @@ class Inventory:
         result = Inventory.__nextID
         Inventory.__nextID += 1
         return result
+
+    @staticmethod
+    def registerDropItem(item):
+        '''
+        THIS METHOD SHOULD ONLY BE USED INTERNALLY BY THE AGENT. Register a drop item so that its ID will be preserved once an agent goes
+        to pick it up.
+        '''
+        if item.type not in Inventory.__dropItemRegistry:
+            Inventory.__dropItemRegistry[item.type] = []
+        Inventory.__dropItemRegistry[item.type].append(item)
 
     def __init__(self, agent):
         self.__agent = agent        # A reference to the agent whos inventory this represents
@@ -53,6 +64,7 @@ class Inventory:
         itemsRemoved = []                   # Return list of items that were removed
 
         while (areItemsLeft):
+            print(self.__agent.toJSON())
             itemType = json[0]["type"]
             typesFound.append(itemType)
             itemQuantity = json[0]["quantity"]
@@ -96,9 +108,12 @@ class Inventory:
         if isinstance(itemType, Enum):
             itemType = itemType.value
 
-        # Figure out what ID to assign to the item
+        # If ID was not given, search for a known one in the registry, or generate one from scratch
         if itemID == None:
-            itemID = "{}{}".format(itemType, Inventory.__getNextID())
+            if itemType in Inventory.__dropItemRegistry and len(Inventory.__dropItemRegistry[itemType]) != 0:
+                itemID = Inventory.__dropItemRegistry[itemType].pop(0).id
+            else:    
+                itemID = "{}{}".format(itemType, Inventory.__getNextID())
 
         newItem = Item(itemID, itemType)
         if itemType in self.__map:
