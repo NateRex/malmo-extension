@@ -4,6 +4,7 @@
 # ==============================================================================================
 from malmoext.Utils import *
 
+# TODO - Cleanup
 class AgentInventory:
     """
     Class containing all of the inventory items an Agent is currently in possession of.
@@ -23,6 +24,13 @@ class AgentInventory:
         """
         AgentInventory.__idCounter__ += 1
         return AgentInventory.__idCounter__
+
+    def getInventoryMap(self):
+        '''
+        Returns a reference to the map of inventory items, which maps item types to lists of item IDs that this
+        agent is carrying.
+        '''
+        return self.__inventory__
 
     def update(self):
         """

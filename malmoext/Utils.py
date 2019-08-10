@@ -175,14 +175,14 @@ class LogUtils:
     '''
     A collection of named tuples to make conveying information from the Agent class to the Logger easier.
     '''
-    ClosestMobReport   = namedtuple("ClosestMobReport", "reportType variant result")
-    ClosestItemReport  = namedtuple("ClosestItemReport", "reportType variant result")
-    LookAtReport       = namedtuple("LookAtReport", "reportType entity")
-    MoveToReport       = namedtuple("MoveToReport", "reportType entity")
-    CraftReport        = namedtuple("CraftReport", "reportType item recipe")
-    AttackReport       = namedtuple("AttackReport", "reportType mob didKill")
-    EquipReport        = namedtuple("EquipReport", "reportType item")
-    GiveItemReport     = namedtuple("GiveItemReport", "reportType item agent")
+    ClosestMobReport   = namedtuple("ClosestMobReport", "variant mob")
+    ClosestItemReport  = namedtuple("ClosestItemReport", "variant item")
+    LookAtReport       = namedtuple("LookAtReport", "entity")
+    MoveToReport       = namedtuple("MoveToReport", "entity")
+    CraftReport        = namedtuple("CraftReport", "itemCrafted itemsUsed")
+    AttackReport       = namedtuple("AttackReport", "mob didKill itemsObtained")
+    EquipReport        = namedtuple("EquipReport", "item")
+    GiveItemReport     = namedtuple("GiveItemReport", "item agent")
 
 # ==============================================================================================
 # Enumerated Types

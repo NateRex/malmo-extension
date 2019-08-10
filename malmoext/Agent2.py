@@ -6,7 +6,7 @@ import copy
 from enum import Enum
 from collections import namedtuple
 from malmoext.Utils import MathUtils, Mobs, Items, LogUtils, Vector, Entity, numerifyId, STRIKING_DISTANCE, GIVING_DISTANCE
-from malmoext.AgentInventory import AgentInventory
+from malmoext.Inventory import Inventory
 
 class Agent:
     '''
@@ -27,7 +27,7 @@ class Agent:
         self.__logReports = []                  # A list of log reports to be read by the Logger next iteration
         self.id = agentID                       # The ID of this agent
         self.type = agentType                   # The AgentType of this agent
-        self.inventory = AgentInventory(self)   # Reference to this agent's inventory
+        self.inventory = Inventory(self)        # Reference to this agent's inventory
 
     def isMissionActive(self):
         '''
@@ -155,20 +155,20 @@ class Agent:
         self.__stopMoving()
         self.__stopAttacking()
 
-    def __nearbyEntities(self):
+    def nearbyEntities(self):
         '''
         Returns a list of all nearby entities to this agent.
         '''
         agentJSON = self.toJSON()
         return [Entity("{}{}".format(k["name"], numerifyId(k["id"]).replace("-", "")), k["name"], Vector(k["x"], k["y"], k["z"]), k.get("quantity")) for k in agentJSON["nearby_entities"]]
 
-    def getClosestMob(self, variant=Mobs.All):
+    def closestMob(self, variant=Mobs.All):
         '''
         Get the closest mob to this agent. Optionally specify additional modifiers for filtering mobs by type.
         Returns None if no mob was found nearby to this agent.
         '''
         aPos = self.__position()
-        nearbyEntities = self.__nearbyEntities()
+        nearbyEntities = self.nearbyEntities()
         if variant == Mobs.All:
             comparator = Mobs.All.isMember
         elif variant == Mobs.Peaceful:
@@ -192,13 +192,13 @@ class Agent:
         self.__logReports.append(LogUtils.ClosestMobReport(variant, closestMob))
         return closestMob
 
-    def getClosestItem(self, variant=Items.All):
+    def closestItem(self, variant=Items.All):
         '''
         Get the closest item on the ground to this agent. Optionally specify additional modifiers for filtering
         items by type. Returns None if no item was found nearby to this agent.
         '''
         aPos = self.__position()
-        nearbyEntities = self.__nearbyEntities()
+        nearbyEntities = self.nearbyEntities()
         if variant == Items.All:
             comparator = Items.All.isMember
         elif variant == Items.Food:
@@ -433,40 +433,6 @@ class Agent:
         else:
             return False
 
-    def craft(self, item, recipe):
-        '''
-        Craft an item using the recipe, which is a list of other items in this agent's inventory.
-        Returns true if successful, false otherwise.
-
-            Preconditions:
-                - The agent has enough of each recipe item
-        '''
-        # Check for override
-        if self.__shouldPerformActionOverride(self.craft):
-            return self.__actionOverride.function(*self.__actionOverride.args)
-
-        # Preconditions
-        hasAllItems = True
-        for recipeItem in recipe:
-            if self.inventory.amountOfItem(recipeItem) < recipeItem.quantity:
-                hasAllItems = False
-                break
-        if not self.__checkPreconditions(hasAllItems):
-            return False
-
-        # Obtain a list of items from the inventory that will be consumed
-        consumedItems = []
-        for recipeItem in recipe:
-            possibleItems = self.inventory.allItemsByType(recipeItem.type)
-            for i in range(0, recipeItem.quantity):
-                consumedItems.append(possibleItems[i])
-        
-        # Action
-        self.__host.sendCommand("craft {}".format(item.value))
-        time.sleep(0.5)
-        self.__logReports.append(LogUtils.CraftReport(item, recipe))
-        return True
-
     def attackMob(self, mob):
         '''
         Direct this agent to attack a mob using the currently equipped item. Returns true if the agent successfully
@@ -498,11 +464,12 @@ class Agent:
 
         # TODO - Wait to see if we pick up any items immediately as a result of a kill
         # TODO - If # mobs killed increased by more than 1, account for this
+        obtainedItems = []
 
         if newMobsKilled > oldMobsKilled:
-            self.__logReports.append(LogUtils.AttackReport(entity, True))
+            self.__logReports.append(LogUtils.AttackReport(mob, True, obtainedItems))
         else:
-            self.__logReports.append(LogUtils.AttackReport(entity, False))
+            self.__logReports.append(LogUtils.AttackReport(mob, False, obtainedItems))
 
         return True
 
@@ -513,9 +480,45 @@ class Agent:
         '''
         print("TODO")
 
-    def equip(self, item):
+    def craft(self, itemType, recipe):
         '''
-        Equip an item from this agent's inventory. Returns true if the agent successfully equips the item,
+        Craft an item of the given type using a list of RecipeItems. Returns true if successful, and
+        false otherwise.
+
+            Preconditions:
+                - The agent has enough of each recipe item
+        '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.craft):
+            return self.__actionOverride.function(*self.__actionOverride.args)
+
+        # Preconditions
+        hasAllItems = True
+        for recipeItem in recipe:
+            if self.inventory.amountOfItem(recipeItem) < recipeItem.quantity:
+                hasAllItems = False
+                break
+        if not self.__checkPreconditions(hasAllItems):
+            return False
+
+        # Remove each recipe item from the inventory
+        consumedItems = []
+        for recipeItem in recipe:
+            for i in range(0, recipeItem.quantity):
+                consumedItems.append(self.inventory.removeItem(recipeItem.type))
+        
+        # Add the crafted item to the inventory
+        craftedItem = self.inventory.addItem(itemType)
+
+        # Action
+        self.__host.sendCommand("craft {}".format(itemType.value))
+        time.sleep(0.5)
+        self.__logReports.append(LogUtils.CraftReport(craftedItem, recipeItem))
+        return True
+
+    def equip(self, itemType):
+        '''
+        Equip an item of the given type from this agent's inventory. Returns true if the agent successfully equips the item,
         false otherwise.
 
             Preconditions:
@@ -527,16 +530,16 @@ class Agent:
 
         # Preconditions
         if not self.__checkPreconditions(
-            self.inventory.amountOfItem(item.type) >= 1):
+            self.inventory.amountOfItem(itemType.type) >= 1):
             return False
 
         # Return early if the item is already equipped
-        if self.inventory.equippedItem().type == item.type:
+        if self.inventory.equippedItem().type == itemType.type:
             return True
 
         # Obtain a reference to the item we will equip
-        inventoryItem = self.inventory.itemByType(item)
-        oldIndex = self.inventory.itemIndex(item.type)
+        inventoryItem = self.inventory.getItem(itemType)
+        oldIndex = self.inventory.getItemIndex(itemType.type)
         if inventoryItem == None or oldIndex == None:
             return False
 
@@ -567,9 +570,9 @@ class Agent:
         
         return False
 
-    def giveItem(self, item, agent):
+    def giveItem(self, itemType, agent):
         '''
-        Give an item to another agent. Returns true if successful, false otherwise.
+        Give an item of the given type to another agent. Returns true if successful, false otherwise.
 
             Preconditions:
                 - The agent has an item of the given type
@@ -588,18 +591,15 @@ class Agent:
         equippedItem = self.inventory.equippedItem()
         if not self.__checkPreconditions(
             equippedItem != None,
-            equippedItem.type == item.value,
+            equippedItem.type == itemType.value,
             self.__isLookingAt(agent.__position()),
             self.__isAt(agent.__position(), 2, GIVING_DISTANCE)
         ):
             return False
 
         # Record the exchange in each agent's inventory
-        toGive = self.inventory.itemByType(item)
-        if toGive == None:
-            return False
-        self.inventory.removeItem(toGive)
-        agent.inventory.addItem(item.value, toGive.id)  # Preserve the ID
+        toGive = self.inventory.removeItem(toGive)
+        agent.inventory.addItem(itemType, toGive.id)  # Preserve the ID
 
         # Action
         self.__throwItem()

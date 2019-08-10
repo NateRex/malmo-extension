@@ -51,8 +51,6 @@ malmoutils.startLogging(
     player_agent, LogFlags.ClosestHostileMob.value  # want verbose output for zombies close to player
 )
 
-
-
 # DEFINE AGENT ACTIONS ===========================================================================================
 
 while malmoutils.isMissionActive():

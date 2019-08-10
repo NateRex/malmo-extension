@@ -1159,7 +1159,6 @@ class Agent:
         '''
         Metadata containing current properties/aspects of an agent during a mission.
         '''
-
         def __init__(self):
             self.lookingAt = None
             self.at = None
