@@ -102,7 +102,7 @@ class Logger:
             self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Peaceful], Mobs.Peaceful)
             agentMetadata.closestMob[Mobs.Hostile] = agent.closestMob(Mobs.Hostile)
             self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Hostile], Mobs.Hostile)
-            agentMetadata.closestMob[Mobs.Food] = agent.closestMob(Mobs.Hostile)
+            agentMetadata.closestMob[Mobs.Food] = agent.closestMob(Mobs.Food)
             self.__logClosestMob(agent, agentMetadata.closestMob[Mobs.Food], Mobs.Food)
 
             # Log closest items
