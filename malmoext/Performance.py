@@ -102,7 +102,7 @@ class Performance:
         Update the log of this agent's performance to contain the most recent data.
         """
         # If this agent is a human agent, there are things that are not automatically updated (such as inventory). Handle this on every update.
-        if self.agent.agentType == AgentType.Human:
+        if self.agent.type == AgentType.Human:
             self.agent.inventory.update()
 
         if self.counter == 100:

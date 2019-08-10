@@ -60,33 +60,33 @@ logger.start()
 
 while malmoutils.isMissionActive():
     logger.update()         # update the log
-    Performance.update()    # update performance data
+    #Performance.update()    # update performance data
 
     defender_agent.equip(Items.All.diamond_sword)   # ensure sword is equipped
 
-    zombie = player_agent.getClosestHostileMob()    # target closest zombie to the player
+    zombie = player_agent.closestMob(Mobs.Hostile)    # target closest zombie to the player
     if zombie != None:
-        isLookingAt = defender_agent.lookAtEntity(zombie)
+        isLookingAt = defender_agent.lookAt(zombie)
         if not isLookingAt:
             continue
-        isAt = defender_agent.moveToEntity(zombie)
+        isAt = defender_agent.moveTo(zombie)
         if not isAt:
             continue
         defender_agent.attackMob(zombie)
         continue
 
-    isLookingAt = defender_agent.lookAtAgent(player_agent)     # no zombies.. move to player
+    isLookingAt = defender_agent.lookAt(player_agent)     # no zombies.. move to player
     if not isLookingAt:
         continue
-    isAt = defender_agent.moveToAgent(player_agent)
+    isAt = defender_agent.moveTo(player_agent)
     if not isAt:
         continue
 
     # Nothing to do...
-    defender_agent.stopAllMovement()
+    defender_agent.stopMoving()
 
 
 
 # FINISH ==========================================================================================================
 logger.export()
-Performance.export()
+#Performance.export()

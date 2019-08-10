@@ -285,10 +285,8 @@ class Logger:
         else:
             raise Exception("Closest mob variant must be an enumerated type")
 
-        if mob == None:
-            self.__appendLine("{}{}-None".format(prefix, agent.id))
-        else:
-            self.__appendLine("{}{}-{}".format(prefix, agent.id, mob.id))
+        mobID = mob.id if mob != None else "None"
+        self.__appendLine("{}{}-{}".format(prefix, agent.id, mobID))
 
     def __logClosestItem(self, agent, item, variant=Items.All):
         '''
@@ -306,10 +304,8 @@ class Logger:
         else:
             raise Exception("Closest item variant must be an enumerated type")
 
-        if item == None:
-            self.__appendLine("{}{}-None".format(prefix, agent.id))
-        else:
-            self.__appendLine("{}{}-{}".format(prefix, agent.id, item.id))
+        itemID = item.id if item != None else "None"
+        self.__appendLine("{}{}-{}".format(prefix, agent.id, item.id))
 
     def __logLookAt(self, agent, fromEntity, toEntity):
         '''
@@ -317,14 +313,16 @@ class Logger:
         to a new entity.
         '''
         self.__appendNewline()
+        fromID = fromEntity.id if fromEntity != None else "None"
+        toID = toEntity.id if toEntity != None else "None"
 
         # Preconditions - None
 
         # Action
-        self.__appendLine("!LOOKAT-{}-{}-{}".format(agent.id, fromEntity.id, toEntity.id))
+        self.__appendLine("!LOOKAT-{}-{}-{}".format(agent.id, fromID, toID))
 
         # Postconditions
-        self.__appendLine("looking_at-{}-{}".format(agent.id, toEntity.id))
+        self.__appendLine("looking_at-{}-{}".format(agent.id, toID))
 
     def __logMoveTo(self, agent, fromEntity, toEntity):
         '''
@@ -332,15 +330,17 @@ class Logger:
         to a new entity.
         '''
         self.__appendNewline()
+        fromID = fromEntity.id if fromEntity != None else "None"
+        toID = toEntity.id if toEntity != None else "None"
 
         # Preconditions
-        self.__appendLine("looking_at-{}-{}".format(agent.id, toEntity.id))
+        self.__appendLine("looking_at-{}-{}".format(agent.id, toID))
 
         # Action
-        self.__appendLine("!MOVETO-{}-{}-{}".format(agent.id, fromEntity.id, toEntity.id))
+        self.__appendLine("!MOVETO-{}-{}-{}".format(agent.id, fromID, toID))
 
         # Postconditions
-        self.__appendLine("at-{}-{}".format(agent.id, toEntity.id))
+        self.__appendLine("at-{}-{}".format(agent.id, toID))
 
     def __logAttack(self, agent, mob, wasKilled, itemsObtained):
         '''
@@ -420,7 +420,10 @@ class Logger:
         '''
         Handle a ClosestMobReport from an agent.
         '''
-        if logReport.mob.id != self.__currentState.agents[agent.id].closestMob[logReport.variant].id:
+        oldClosest = self.__currentState.agents[agent.id].closestMob[logReport.variant]
+        oldClosestID = oldClosest.id if oldClosest != None else None
+        newClosestID = logReport.mob.id if logReport.mob != None else None
+        if newClosestID != oldClosestID:
             self.__logClosestMob(agent, logReport.mob, logReport.variant)
             self.__currentState.agents[agent.id].closestMob[logReport.variant] = logReport.mob
 
@@ -428,7 +431,10 @@ class Logger:
         '''
         Handle a ClosestItemReport from an agent.
         '''
-        if logReport.item.id != self.__currentState.agents[agent.id].closestItem[logReport.variant].id:
+        oldClosest = self.__currentState.agents[agent.id].closestItem[logReport.variant]
+        oldClosestID = oldClosest.id if oldClosest != None else None
+        newClosestID = logReport.item.id if logReport.item != None else None
+        if newClosestID != oldClosestID:
             self.__logClosestItem(agent, logReport.item, logReport.variant)
             self.__currentState.agents[agent.id].closestItem[logReport.variant] = logReport.item
 
@@ -436,16 +442,22 @@ class Logger:
         '''
         Handle a LookAtReport from an agent.
         '''
-        if logReport.entity.id != self.__currentState.agents[agent.id].lookingAt.id:
-            self.__logLookAt(agent, self.__currentState.agents[agent.id].lookingAt, logReport.entity)
+        oldLookAt = self.__currentState.agents[agent.id].lookingAt
+        oldLookAtID = oldLookAt.id if oldLookAt != None else None
+        newLookAtID = logReport.entity.id if logReport.entity != None else None
+        if newLookAtID != oldLookAtID:
+            self.__logLookAt(agent, oldLookAt, logReport.entity)
             self.__currentState.agents[agent.id].lookingAt = logReport.entity
 
     def __handleMoveToReport(self, agent, logReport):
         '''
         Handle a MoveToReport from an agent.
         '''
-        if logReport.entity.id != self.__currentState.agents[agent.id].at.id:
-            self.__logMoveTo(agent, self.__currentState.agents[agent.id].at, logReport.entity)
+        oldMoveTo = self.__currentState.agents[agent.id].at
+        oldMoveToID = oldMoveTo.id if oldMoveTo != None else None
+        newMoveToID = logReport.entity.id if logReport.entity != None else None
+        if newMoveToID != oldMoveToID:
+            self.__logMoveTo(agent, oldMoveTo, logReport.entity)
             self.__currentState.agents[agent.id].at = logReport.entity
 
     def __handleCraftReport(self, agent, logReport):
@@ -469,7 +481,10 @@ class Logger:
         '''
         Handle an EquipReport from an agent.
         '''
-        if logReport.item.id != self.__currentState.agents[agent.id].equippedItem.id:
+        oldEquipped = self.__currentState.agents[agent.id].equippedItem
+        oldEquippedID = oldEquipped.id if oldEquipped != None else None
+        newEquippedID = logReport.item.id if logReport.item != None else None
+        if newEquippedID != oldEquippedID:
             self.__logEquipItem(agent, logReport.item)
             self.__currentState.agents[agent.id].equippedItem = logReport.item
 
@@ -487,7 +502,7 @@ class Logger:
         Produce a log for any agent log reports that are not repeats from the last iteration.
         '''
         logReports = agent.getAndClearLogReports()
-        for logReport in logReport:
+        for logReport in logReports:
             logReportType = type(logReport).__name__
             if logReportType == "ClosestMobReport":
                 self.__handleClosestMobReport(agent, logReport)
@@ -512,7 +527,7 @@ class Logger:
         '''
         Produce logs for all agents where changes/actions have occurred.
         '''
-        for agent in Agent.allAgents:
+        for agent in list(Agent.allAgents.values()):
             self.__handleAgentLogReports(agent)
 
     def export(self):

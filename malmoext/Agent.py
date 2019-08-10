@@ -58,8 +58,8 @@ class Agent:
         THIS METHOD SHOULD ONLY BE USED INTERNALLY BY THE LOGGER. Returns the list of actions that
         need logging since last iteration.
         '''
-        result = copy.deepcopy(self.__log)
-        self.__log.clear()
+        result = copy.deepcopy(self.__logReports)
+        self.__logReports.clear()
         return result
 
     def isAlive(self):
@@ -161,7 +161,7 @@ class Agent:
             return self.__actionOverride.function(*self.__actionOverride.args)
 
         self.__stopTurning()
-        self.__stopMoving()
+        self.__stopWalking()
         self.__stopAttacking()
 
     def nearbyEntities(self):
@@ -341,7 +341,7 @@ class Agent:
         else:
             return abs(pitchRate) < .8 and abs(yawRate) < .8
 
-    def lookAtEntity(self, entity):
+    def lookAt(self, entity):
         '''
         Begin moving the agent's POV up/down and left/right to face the given entity.
         Returns true if the agent is facing the entity, false otherwise.
@@ -350,7 +350,7 @@ class Agent:
                 None
         '''
         # Check for override
-        if self.__shouldPerformActionOverride(self.lookAtEntity):
+        if self.__shouldPerformActionOverride(self.lookAt):
             return self.__actionOverride.function(*self.__actionOverride.args)
 
         # If entity is an agent, represent it as an entity
@@ -411,7 +411,7 @@ class Agent:
             self.__startWalking(-1)
             return False
 
-    def moveToEntity(self, entity):
+    def moveTo(self, entity):
         '''
         Begin moving the agent to the given entity. Returns true if the agent is at the entity,
         false otherwise.
@@ -420,7 +420,7 @@ class Agent:
                 - The agent is looking at the entity
         '''
         # Check for override
-        if self.__shouldPerformActionOverride(self.moveToEntity):
+        if self.__shouldPerformActionOverride(self.moveTo):
             return self.__actionOverride.function(*self.__actionOverride.args)
 
         # If entity is an agent, represent it as an entity
@@ -491,7 +491,7 @@ class Agent:
 
     def craft(self, itemType, recipe):
         '''
-        Craft an item of the given type using a list of RecipeItems. Returns true if successful, and
+        Craft an item of the given enumerated type using a list of RecipeItems. Returns true if successful, and
         false otherwise.
 
             Preconditions:
@@ -527,7 +527,7 @@ class Agent:
 
     def equip(self, itemType):
         '''
-        Equip an item of the given type from this agent's inventory. Returns true if the agent successfully equips the item,
+        Equip an item of the given enumerated type from this agent's inventory. Returns true if the agent successfully equips the item,
         false otherwise.
 
             Preconditions:
@@ -539,16 +539,16 @@ class Agent:
 
         # Preconditions
         if not self.__checkPreconditions(
-            self.inventory.amountOfItem(itemType.type) >= 1):
+            self.inventory.amountOfItem(itemType) >= 1):
             return False
 
         # Return early if the item is already equipped
-        if self.inventory.equippedItem().type == itemType.type:
+        if self.inventory.equippedItem().type == itemType.value:
             return True
 
         # Obtain a reference to the item we will equip
         inventoryItem = self.inventory.getItem(itemType)
-        oldIndex = self.inventory.getItemIndex(itemType.type)
+        oldIndex = self.inventory.getItemIndex(itemType)
         if inventoryItem == None or oldIndex == None:
             return False
 
@@ -581,7 +581,7 @@ class Agent:
 
     def giveItem(self, itemType, agent):
         '''
-        Give an item of the given type to another agent. Returns true if successful, false otherwise.
+        Give an item of the given enumerated type to another agent. Returns true if successful, false otherwise.
 
             Preconditions:
                 - The agent has an item of the given type
