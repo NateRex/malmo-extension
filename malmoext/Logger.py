@@ -309,7 +309,7 @@ class Logger:
             raise Exception("Closest item variant must be an enumerated type")
 
         itemID = item.id if item != None else "None"
-        self.__appendLine("{}{}-{}".format(prefix, agent.id, item.id))
+        self.__appendLine("{}{}-{}".format(prefix, agent.id, itemID))
 
     def __logLookAt(self, agent, fromEntity, toEntity):
         '''

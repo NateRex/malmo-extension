@@ -11,11 +11,11 @@ from malmoext.Inventory import Inventory
 class Agent:
     '''
     Wrapper class for a Malmo AgentHost object. Exposes methods corresponding to 'high-level'
-    actions such as looking at or moving to a vectorized position. Any completed actions by this
-    agent automatically trigger logging.
+    actions such as looking at or moving to vectorized positions. Any completed actions by this
+    agent automatically triggers logging by any loggers that get updated.
     '''
     allAgents = {}  # A map containing all agents that were created, accessible by ID
-    ActionOverride = namedtuple("ActionOverride", "function args")
+    ActionOverride = namedtuple("ActionOverride", "function args")  # Representation of an action w/ args that should internally override any other action called
 
     def __init__(self, agentID, agentType):
         if agentID in Agent.allAgents:
