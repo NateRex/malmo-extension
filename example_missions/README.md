@@ -9,7 +9,7 @@ ____
 This repository contains several example scripts to get you started creating missions in Malmo using the wrapper. These are located in the same directory as this README. All of the mission scripts follow a simple pattern:
 
 1. Create the mission environment
-2. Start the Malmo mission (specifying additional logging if necessary)
+2. Start the Malmo mission (specifying any logging or statistics collection)
 3. Define each agent's actions (occurs in a loop)
 4. Cleanup
 
@@ -37,6 +37,6 @@ ____
     python3 <myMission>.py
     ```
 
-3. Once a mission finishes, several files will become available:
+3. If you used the logger or statistics generator, several files will become available once the mission finishes:
     - A single log describing everything that occurred during the mission will be output to a "logs" directory.
-    - A CSV file for **each agent** will be output to a "performance" directory. Each CSV file contains agent statistics over time.
+    - A CSV file for **each agent** will be output to a "stats" directory. Each CSV file contains agent statistics over time.
