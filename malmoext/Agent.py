@@ -463,6 +463,23 @@ class Agent:
         else:
             return False
 
+    def pickUpItem(self, item):
+        '''
+        Commands the agent to look at and move to an item on the ground to pick it up. Is the equivalent of calling lookAt(item)
+        followed by moveTo(item). Is best used for items within close proximity to the agent.
+        '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.pickUpItem):
+            return self.__actionOverride.function(*self.__actionOverride.args)
+
+        # Note - Once we are close enough, moveTo will cause the agent to lock down on the internal __pickUpItem function,
+        #        which will return true once the item appears in inventory
+        if not self.lookAt(item):
+            return False
+        if not self.moveTo(item):
+            return False
+        return True
+
     def __pickUpItem(self, item, previousInventoryAmt):
         '''
         Internal lockdown action for continuously moving an agent towards an item until it has been picked up and
@@ -521,21 +538,40 @@ class Agent:
         newMobsKilled = self.__mobsKilled()
 
         if newMobsKilled > oldMobsKilled:
-            # Get any items we immediately picked up
-            itemsPickedUp, _ = self.inventory.sync()
-
-            # Get any items that were dropped onto the ground (register their IDs w/ the Inventory class to preserve them)
-            nearbyEntities = self.nearbyEntities()
-            itemsDropped = [x for x in nearbyEntities if Items.All.isMember(x.type)]
-            for item in itemsDropped:
-                for i in range(0, item.quantity):
-                    Inventory.registerDropItem(item)
-
-            self.__logReports.append(LogUtils.AttackReport(mob, True, itemsDropped, itemsPickedUp))
+            self.__attackCleanup(mob)
         else:
             self.__logReports.append(LogUtils.AttackReport(mob, False, [], []))
 
         return True
+
+    def __attackCleanup(self, mob):
+        '''
+        Perform additional cleanup work and logging as a result of an agent having killed the given mob.
+        '''
+        # Get any items that were immediately picked up
+        itemsPickedUp, _ = self.inventory.sync()
+        
+        # Get any items that were dropped to the ground (register their IDs w/ Inventory class to preserve them)
+        nearbyEntities = self.nearbyEntities()
+        itemsDropped = [x for x in nearbyEntities if Items.All.isMember(x.type)]
+        for item in itemsDropped:
+            for i in range(0, item.quantity):
+                Inventory.registerDropItem(item)
+        
+        # Create the log report for the attack
+        self.__logReports.append(LogUtils.AttackReport(mob, True, itemsDropped, itemsPickedUp))
+
+        # Trigger a log report for new closest mobs of this mob's type for all agents
+        allAgents = list(Agent.allAgents.values())
+        for agent in allAgents:
+            if Mobs.All.isMember(mob.type):
+                agent.closestMob()
+            if Mobs.Peaceful.isMember(mob.type):
+                agent.closestMob(Mobs.Peaceful)
+            if Mobs.Hostile.isMember(mob.type):
+                agent.closestMob(Mobs.Hostile)
+            if Mobs.Food.isMember(mob.type):
+                agent.closestMob(Mobs.Food)
 
     def craft(self, itemType, recipe):
         '''

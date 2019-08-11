@@ -71,9 +71,7 @@ while malmoutils.isMissionActive():
 
     closestFood = farmer_agent.closestItem(Items.Food)  # Collect any beef laying on the ground nearby
     if closestFood != None:
-        if not farmer_agent.lookAt(closestFood):
-            continue
-        if not farmer_agent.moveTo(closestFood):
+        if not farmer_agent.pickUpItem(closestFood):
             continue
         continue
 
