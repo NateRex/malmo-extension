@@ -1,16 +1,11 @@
 import time
 from datetime import datetime
 import pandas
-import matplotlib.pyplot as plt
 import sys
 import os
 import random
 from malmoext.Agent import Agent
 from malmoext.Utils import AgentType
-
-# ===========================================================================================================
-# FUNCTIONALITY FOR USING THIS FILE AS A MODULE (for generating new data)
-# ===========================================================================================================
 
 class Statistics:
     """
@@ -144,90 +139,3 @@ class Statistics:
             self.health = 20.0         # Current health of the agent
             self.healthLost = 0.0      # Total amount of health lost over time
             self.healthGained = 0.0    # Total amount of health regenerated over time
-
-
-
-
-
-# ===========================================================================================================
-# FUNCTIONALITY FOR RUNNING THIS FILE AS A SCRIPT (for interpreting past data)
-# ===========================================================================================================
-
-def __getCSVFiles__():
-    """
-    Repeatedly asks the user to input the name of a performance CSV file in the performance directory, until the empty string is received.
-    Returns the list of csv filenames.
-    """
-    filenames = []
-    shouldGetInput = True
-    while shouldGetInput:
-        filename = input("Enter CSV file name: ")
-        if len(filename) == 0:
-            shouldGetInput = False
-        else:
-            filepath = os.path.join("performance", filename)
-            if os.path.isfile(filepath):
-                filenames.append(filename)
-            else:
-                print("'{}' could not be found.".format(filepath))
-    return filenames
-
-def __getGraphAttributes__(dataframe):
-    """
-    Gets all available attributes from a sample dataframe, then repeatedly collects attributes to plot from the user until an empty string is received.
-    Returns the list of attributes.
-    """
-    print("Plottable Attributes ==============================")
-    for col in dataframe.columns:
-        print("- " + col)
-    print("===================================================\n")
-    
-    attributes = []
-    shouldGetInput = True
-    while shouldGetInput:
-        attribute = input("Attribute: ")
-        if len(attribute) == 0:
-            shouldGetInput = False
-        else:
-            attributes.append(attribute)
-    return attributes
-
-def main():
-    """
-    Main method allowing this file to be ran as a script for nicely outputting statistical data from a csv file in
-    various forms.
-    """
-    filenames = __getCSVFiles__()
-    if len(filenames) == 0:
-        print("No CSV files entered")
-        return
-
-    # These have a 1:1 mapping to the filepaths gathered above
-    agentIds = []
-    agentData = []
-    for filepath in filenames:
-        agentIds.append(filepath.split("_")[0])
-        agentData.append(pandas.read_csv(os.path.join("performance", filepath)))
-
-    # Collect the attributes of interest in each AgentData object
-    attributes = __getGraphAttributes__(agentData[0])
-
-    # Plot each attribute against SysTime
-    fig = plt.figure()
-    fig.canvas.set_window_title("Agent Statistics Over Time")
-    for i in range(len(agentIds)):
-        for attribute in attributes:
-            r = random.random()
-            g = random.random()
-            b = random.random()
-            plt.plot(agentData[i]["SysTime"], agentData[i][attribute], markeredgecolor=(r, g, b, 1), linestyle="solid", label="{} {}".format(agentIds[i], attribute))
-
-    # Show the plot on-screen
-    plt.legend(loc="best")
-    plt.xlabel("Time")
-    plt.ylabel("Amount")
-    plt.show()
-
-
-if __name__ == "__main__":
-    main()
