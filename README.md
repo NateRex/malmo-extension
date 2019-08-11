@@ -12,9 +12,9 @@ ___
 
 3. Install the malmo-extension package using pip:
     ```
-    pip3 install malmoext==0.37.*
+    pip3 install malmoext==<VERSION>.*
     ```
 
-    **Note** - The minor version of this package should match the minor version of the Malmo Platform. For example, if you downloaded version 0.37.0 of the Malmo Platform, you should download version 0.37.\* of the malmo-extension package.
+    **Note** - The major version you choose should match the minor version of your Malmo Platform download. For example, if you downloaded version 0.37.\* of the Malmo Platform, you should download version 37.\* of the malmo-extension package.
 
 That's it! You are now ready to begin using this Malmo wrapper. Check out the [Mission Guide](https://github.com/NateRex/malmo-extension/tree/master/example_missions#malmo-extension-mission-guide) for details on how to get started building and running Minecraft missions.
