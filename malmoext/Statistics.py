@@ -28,11 +28,12 @@ class Statistics:
         self.__stats = {}                 # A map of agent IDs to the Pandas dataframe containing each agent's data over time
         self.__metadata = {}              # A map of agent IDs to metadata for each agent used for future calculations
 
-    def setItemTracking(self, itemType):
+    def setItemTracking(self, *itemTypes):
         '''
-        Specify a type of item to be tracked (in quantity) across agent inventories.
+        Specify any number of item types to be tracked across agent inventories.
         '''
-        self.__trackedItems.append(itemType.value)
+        for itemType in itemTypes:
+            self.__trackedItems.append(itemType.value)
 
     def start(self):
         '''

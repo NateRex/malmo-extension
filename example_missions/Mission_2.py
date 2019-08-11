@@ -41,6 +41,8 @@ logger = Logger()
 logger.setLoggingLevel(farmer_agent,
     Logger.Flags.ClosestMob_Food,
     Logger.Flags.ClosestItem_Food)
+stats = Statistics()
+stats.setItemTracking(Items.Food.beef)
 
 # Start mission
 malmoutils.loadMission(builder)
@@ -48,6 +50,7 @@ malmoutils.startMission()
 
 # Start loggers
 logger.start()
+stats.start()
 
 
 
@@ -55,7 +58,7 @@ logger.start()
 
 while malmoutils.isMissionActive():
     logger.update()         # update the log
-    #Performance.update()    # update performance data
+    stats.update()          # update statistical data
 
     if farmer_agent.inventory.amountOfItem(Items.Food.beef) > 0:  # Give any held beef to the player
         if not farmer_agent.lookAt(player_agent):
@@ -89,9 +92,10 @@ while malmoutils.isMissionActive():
 
 # Stop the loggers
 logger.stop()
+stats.stop()
 
 
 
 # FINISH ==========================================================================================================
 logger.export()
-#Performance.export()
+stats.export()
