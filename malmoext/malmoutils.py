@@ -25,6 +25,7 @@ from malmoext.MissionBuilder import *
 import os
 import sys
 import errno
+import time
 
 # GLOBALS - stored as a mission is created and loaded
 CLIENT_POOL = None

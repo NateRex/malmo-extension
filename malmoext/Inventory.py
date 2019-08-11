@@ -64,7 +64,6 @@ class Inventory:
         itemsRemoved = []                   # Return list of items that were removed
 
         while (areItemsLeft):
-            print(self.__agent.toJSON())
             itemType = json[0]["type"]
             typesFound.append(itemType)
             itemQuantity = json[0]["quantity"]

@@ -2,7 +2,7 @@
 **/dist
 **/malmoext.egg-info
 **/logs
-**/performance
+**/stats
 .DS_Store
 build
 settings.json

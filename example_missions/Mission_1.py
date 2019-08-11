@@ -51,6 +51,7 @@ builder.environment.addMob(Mobs.Hostile.Zombie, Vector(5, 4, -11))
 # Set up loggers
 logger = Logger()
 logger.setLoggingLevel(player_agent, Logger.Flags.ClosestMob_Hostile)
+stats = Statistics()
 
 # Start mission
 malmoutils.loadMission(builder)
@@ -58,14 +59,15 @@ malmoutils.startMission()
 
 # Start loggers
 logger.start()
-
+stats.start()
 
 
 # DEFINE AGENT ACTIONS ===========================================================================================
 
 while malmoutils.isMissionActive():
     logger.update()         # update the log
-    #Performance.update()    # update performance data
+    stats.update()          # update statistical data
+
 
     defender_agent.equip(Items.All.diamond_sword)   # ensure sword is equipped
 
@@ -83,14 +85,14 @@ while malmoutils.isMissionActive():
     if not defender_agent.moveTo(player_agent):
         continue
 
-    # Nothing to do...
-    defender_agent.stopMoving()
+    defender_agent.stopMoving()     # Nothing to do...
+
 
 # Stop the loggers
 logger.stop()
-
+stats.stop()
 
 
 # FINISH ==========================================================================================================
 logger.export()
-#Performance.export()
+stats.export()

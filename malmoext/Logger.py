@@ -9,9 +9,8 @@ import traceback
 
 class Logger:
     '''
-    Singleton class that produces state and action information for agents operating in a mission.
-    The results are output to a file at the end of the mission. Calls to the logger should only be
-    made via the static class methods.
+    Produces state and action information for agents operating in a mission.
+    The results can be output to a file at the end of the mission.
     '''
     def __init__(self):
         self.__log = []                         # The log contents, split by line
@@ -58,8 +57,8 @@ class Logger:
 
     def start(self):
         '''
-        Log the starting state of the mission. This method should only be called once, after any
-        preliminary settings to the logger are set.
+        Starts up the logger by logging the initial state. This method should only be called once, after any
+        preliminary settings to the logger are set and the mission is started.
         '''
         # Log out a special NoneType entity that we use as a placeholder for things not yet set
         self.__appendLine("none-None-NoneType")
@@ -120,7 +119,8 @@ class Logger:
 
     def stop(self):
         '''
-        Log the final state of the mission. This method should only be called once, after the mission has finished.
+        Shuts down the logger by logging the final state. This method should only be called once,
+        after the mission has ended.
         '''
         
         self.__appendNewline()
@@ -559,14 +559,15 @@ class Logger:
 
     def update(self):
         '''
-        Produce logs for all agents where changes/actions have occurred.
+        Produce logs for all agents where changes/actions have occurred. This function should be called at the
+        beginning of each mission loop iteration.
         '''
         for agent in list(Agent.allAgents.values()):
             self.__handleAgentLogReports(agent)
 
     def export(self):
         '''
-        Output the log contents to a file in the 'logs' directory. The file is named with the
+        Output the log contents to a file in a 'logs' directory. The file is named with the
         current timestamp.
         '''
         directory = "logs"

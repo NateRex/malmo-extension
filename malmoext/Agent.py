@@ -506,7 +506,7 @@ class Agent:
         oldMobsKilled = self.__mobsKilled()
         self.__startAttacking()
         self.stopMoving()
-        time.sleep(1)
+        time.sleep(0.7)
         newMobsKilled = self.__mobsKilled()
 
         if newMobsKilled > oldMobsKilled:
