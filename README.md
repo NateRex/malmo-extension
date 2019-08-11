@@ -6,7 +6,7 @@ malmo-extension is a project that builds upon [Microsoft's Malmo Platform](https
 ___
 ## **Installation** ##
 
-1. Before you are able to use this package, you must have Microsoft's Malmo Platform installed on your machine. [Download the prebuilt Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases), and unzip the directory.
+1. Before you are able to use this package, you must have Microsoft's Malmo Platform downloaded on your machine. [Download the prebuilt Malmo Platform for Windows, Linux, or MacOSX](https://github.com/Microsoft/malmo/releases), and unzip the directory.
 
 2. Create a new global environment variable called MALMO_XSD_PATH. Let it equal the full path to the Schemas/ directory inside of the project you unzipped for step 1.
 
