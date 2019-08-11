@@ -276,7 +276,6 @@ class Agent:
         # Calculate the turning rate
         rate = MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * 4 * turnDirection
         rate = min(rate, 1) if rate >= 0 else max(rate, -1)
-        print("PITCH RATE: {}".format(rate))
         return rate
 
     def __calculateTargetYawRate(self, targetPos):
@@ -324,7 +323,6 @@ class Agent:
         # Calculate the turning rate
         rate = MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * 4 * turnDirection
         rate = min(rate, 1) if rate >= 0 else max(rate, -1)
-        print("YAW RATE: {}".format(rate))
         return rate
 
     def __isLookingAt(self, targetPos, pitchRate=None, yawRate=None):
