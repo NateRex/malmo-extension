@@ -15,7 +15,7 @@ NUMBER_OF_INVENTORY_SLOTS = 40
 
 # Tolerances for completing continuous actions
 STRIKING_DISTANCE = 3
-GIVING_DISTANCE = 5
+GIVING_DISTANCE = 4.5
 PICK_UP_ITEM_LOCKDOWN_DISTANCE = 7
 
 # The size of the observation grid for an agent, as well as how many blocks are in each axis

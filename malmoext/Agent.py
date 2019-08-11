@@ -339,13 +339,16 @@ class Agent:
 
         # If we are close to target and yaw is 1, there is a chance we got stuck and are
         # circling the target. Step back and return false for this iteration..
-        if distance < 2 and yawRate > .9:
-            self.__startWalking(-1)
-            time.sleep(0.2)
-            self.stopMoving()
-            return False
+        # if distance < 2 and yawRate > .9:
+        #     self.__startWalking(-1)
+        #     time.sleep(0.2)
+        #     self.stopMoving()
+        #     return False
 
-        return abs(pitchRate) <= .2 and abs(yawRate) <= .2
+        if distance < 2:
+            return abs(pitchRate) <= .4 and abs(yawRate) <= .4
+        else:
+            return abs(pitchRate) <= .2 and abs(yawRate) <= .2
 
     def lookAt(self, entity):
         '''
@@ -370,7 +373,7 @@ class Agent:
         yawRate = self.__calculateTargetYawRate(entity.position)
         if self.__isLookingAt(entity.position, pitchRate, yawRate):
             self.__stopTurning()
-            if not Items.All.isMember(entity.type):  # Items are a special case
+            if not Items.All.isMember(entity.type):  # Items are a special case for which we do not log
                 self.__logReports.append(LogUtils.LookAtReport(entity))
             return True
         else:
