@@ -5,8 +5,6 @@ from datetime import datetime
 from malmoext.Utils import Mobs, Items, LogUtils
 from malmoext.Agent import Agent
 
-import traceback
-
 class Logger:
     '''
     Produces state and action information for agents operating in a mission.
@@ -486,8 +484,9 @@ class Logger:
         '''
         Handle a PickUpItemReport from an agent.
         '''
-        self.__logPickUpItem(agent, logReport.item)
-        self.__currentState.agents[agent.id].inventory[logReport.item.id] = logReport.item
+        if logReport.item.id not in self.__currentState.agents[agent.id].inventory:
+            self.__logPickUpItem(agent, logReport.item)
+            self.__currentState.agents[agent.id].inventory[logReport.item.id] = logReport.item
 
     def __handleCraftReport(self, agent, logReport):
         '''

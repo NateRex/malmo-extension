@@ -176,6 +176,11 @@ class Agent:
         Get the closest mob to this agent. Optionally specify additional modifiers for filtering mobs by an enumerated type.
         Returns None if no mob was found nearby to this agent.
         '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.closestMob):
+            self.__actionOverride.function(*self.__actionOverride.args)
+            return None
+
         aPos = self.__position()
         nearbyEntities = self.nearbyEntities()
         if variant == Mobs.All:
@@ -206,6 +211,11 @@ class Agent:
         Get the closest item on the ground to this agent. Optionally specify additional modifiers for filtering
         items by an enumerated type. Returns None if no item was found nearby to this agent.
         '''
+        # Check for override
+        if self.__shouldPerformActionOverride(self.closestItem):
+            self.__actionOverride.function(*self.__actionOverride.args)
+            return None
+
         aPos = self.__position()
         nearbyEntities = self.nearbyEntities()
         if variant == Items.All:
@@ -264,14 +274,10 @@ class Agent:
             turnDirection = 1
 
         # Calculate the turning rate
-        if angleDiff > 10:
-            return 1.0 * turnDirection
-        elif angleDiff > 5:
-            return .25 * turnDirection
-        elif angleDiff > 2:
-            return 0.5 * turnDirection
-        else:
-            return MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * turnDirection
+        rate = MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * 4 * turnDirection
+        rate = min(rate, 1) if rate >= 0 else max(rate, -1)
+        print("PITCH RATE: {}".format(rate))
+        return rate
 
     def __calculateTargetYawRate(self, targetPos):
         '''
@@ -316,14 +322,10 @@ class Agent:
             turnDirection = 1
 
         # Calculate the turning rate
-        if angleDiff > 10:
-            return 1.0 * turnDirection
-        elif angleDiff > 5:
-            return .25 * turnDirection
-        elif angleDiff > 2:
-            return 0.5 * turnDirection
-        else:
-            return MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * turnDirection
+        rate = MathUtils.affineTransformation(angleDiff, 0.0, 180.0, 0, 1.0) * 4 * turnDirection
+        rate = min(rate, 1) if rate >= 0 else max(rate, -1)
+        print("YAW RATE: {}".format(rate))
+        return rate
 
     def __isLookingAt(self, targetPos, pitchRate=None, yawRate=None):
         '''
@@ -336,10 +338,16 @@ class Agent:
         # Tolerance depends on how close we are to the target
         aPos = self.__position()
         distance = MathUtils.distanceBetweenPoints(aPos, targetPos)
-        if distance > 7:
-            return abs(pitchRate) < .25 and abs(yawRate) < .25
-        else:
-            return abs(pitchRate) < .8 and abs(yawRate) < .8
+
+        # If we are close to target and yaw is 1, there is a chance we got stuck and are
+        # circling the target. Step back and return false for this iteration..
+        if distance < 2 and yawRate > .9:
+            self.__startWalking(-1)
+            time.sleep(0.2)
+            self.stopMoving()
+            return False
+
+        return abs(pitchRate) <= .2 and abs(yawRate) <= .2
 
     def lookAt(self, entity):
         '''
@@ -466,8 +474,12 @@ class Agent:
         # Move to the position, slowing down as we approach
         self.__moveToPosition(item.position, 0, PICK_UP_ITEM_LOCKDOWN_DISTANCE, False)
 
-        # Report true only if we picked up the item
+        # Make sure we log that we picked up all kinds of items, regardless of what they are
         newInventoryItems, _ = self.inventory.sync()
+        for item in newInventoryItems:
+            self.__logReports.append(LogUtils.PickUpItemReport(item))
+
+        # Only report true when we picked up the target item
         newInventoryAmt = self.inventory.amountOfItem(item.type)
         if newInventoryAmt > previousInventoryAmt:
             # Avoid stopMoving() function since it checks for action override
@@ -475,8 +487,6 @@ class Agent:
             self.__stopWalking()
             self.__stopAttacking()
             self.__actionOverride = None
-            for item in newInventoryItems:
-                self.__logReports.append(LogUtils.PickUpItemReport(item))
             return True
         return False
 
@@ -517,7 +527,8 @@ class Agent:
             nearbyEntities = self.nearbyEntities()
             itemsDropped = [x for x in nearbyEntities if Items.All.isMember(x.type)]
             for item in itemsDropped:
-                Inventory.registerDropItem(item)
+                for i in range(0, item.quantity):
+                    Inventory.registerDropItem(item)
 
             self.__logReports.append(LogUtils.AttackReport(mob, True, itemsDropped, itemsPickedUp))
         else:
